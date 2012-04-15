@@ -61,6 +61,8 @@ data Key2 a b     = Key2 a b
                     deriving (Show)
 data Key1 a       = Key1 a
                     deriving (Show)
+data Key0         = Key0
+                    deriving (Show)
 
 class KEMM k v where
     type EnumMapMap k v :: *
@@ -74,6 +76,9 @@ class KEMM k v where
     insert :: k -> v -> EnumMapMap k v -> EnumMapMap k v
     foldrWithKey :: (k -> v -> t -> t) -> t -> EnumMapMap k v -> t
     foldrWithKey' :: (k -> v -> t -> t) -> t -> EnumMapMap k v -> t
+    toList :: EnumMapMap k v -> List k v
+    toAscList :: EnumMapMap k v -> List k v
+    fromList :: List k v -> EnumMapMap k v
 
 instance (Enum a, Enum b, Enum c, Enum d) => KEMM (Key4 a b c d) v where
     type EnumMapMap (Key4 a b c d) v = EMM4 a b c d v
@@ -90,6 +95,9 @@ instance (Enum a, Enum b, Enum c, Enum d) => KEMM (Key4 a b c d) v where
         = insert_ (insert (tailKey key) val) empty $ headKey key
     foldrWithKey = foldrWithKey4
     foldrWithKey' = foldrWithKey4'
+    toList = toAscList4
+    toAscList = toAscList4
+    fromList = fromList4
 
 instance (Enum a, Enum b, Enum c) => KEMM (Key3 a b c) v where
     type EnumMapMap (Key3 a b c) v = EMM3 a b c v
@@ -106,6 +114,9 @@ instance (Enum a, Enum b, Enum c) => KEMM (Key3 a b c) v where
         = insert_ (insert (tailKey key) val) empty $ headKey key
     foldrWithKey = foldrWithKey3
     foldrWithKey' = foldrWithKey3'
+    toList = toAscList3
+    toAscList = toAscList3
+    fromList = fromList3
 
 instance (Enum a, Enum b) => KEMM (Key2 a b) v where
     type EnumMapMap (Key2 a b) v = EMM2 a b v
@@ -122,6 +133,9 @@ instance (Enum a, Enum b) => KEMM (Key2 a b) v where
         = insert_ (insert (tailKey key) val) empty $ headKey key
     foldrWithKey = foldrWithKey2
     foldrWithKey' = foldrWithKey2'
+    toList = toAscList2
+    toAscList = toAscList2
+    fromList = fromList2
 
 instance (Enum a) => KEMM (Key1 a) v where
     type EnumMapMap (Key1 a) v = EMM1 a v
@@ -137,6 +151,9 @@ instance (Enum a) => KEMM (Key1 a) v where
         = insert_ (\_ -> val) val $ headKey key
     foldrWithKey = foldrWithKey1
     foldrWithKey' = foldrWithKey1'
+    toList = toAscList1
+    toAscList = toAscList1
+    fromList = fromList1
 
 null :: EMM a v -> Bool
 null t = case t of
@@ -184,15 +201,15 @@ member_ f key t =
 --------------------------------------------------------------------}
 
 insert_ :: (v -> v) -> v -> Key -> EMM a v -> EMM a v
-insert_ f def !key imm =
+insert_ f def !key emm =
     case imm of
       Bin p m l r
-          | nomatch key p m -> join key (Tip key def) p imm
+          | nomatch key p m -> join key (Tip key def) p emm
           | zero key m      -> Bin p m (insert_ f def key l) r
           | otherwise       -> Bin p m l (insert_ f def key r)
       Tip ky t
           | key == ky         -> Tip key $ f t
-          | otherwise         -> join key (Tip key def) ky imm
+          | otherwise         -> join key (Tip key def) ky emm
       Nil -> Tip key def
 
 {--------------------------------------------------------------------
@@ -287,17 +304,53 @@ foldrWithKey_' f z = \t ->
   Lists
 --------------------------------------------------------------------}
 
--- toAscList4 :: EnumMapMap k v -> List k v
--- toAscList4 = toAscList toAscList3
+toAscList4 :: (Enum a, Enum b, Enum c, Enum d) =>
+              EnumMapMap (Key4 a b c d) v -> List (Key4 a b c d) v
+toAscList4 = toAscList_ toAscList3
+{-# INLINE toAscList4 #-}
 
--- toAscList3 :: EnumMapMap k v -> List k v
--- toAscList3 = toAscList toAscList2
+toAscList3 :: (Enum a, Enum b, Enum c) =>
+              EnumMapMap (Key3 a b c) v -> List (Key3 a b c) v
+toAscList3 = toAscList_ toAscList2
+{-# INLINE toAscList3 #-}
 
--- toAscList2 :: EnumMapMap k v -> List k v
--- toAscList2 = toAscList toAscList1
+toAscList2 :: (Enum a, Enum b) =>
+              EnumMapMap (Key2 a b) v -> List (Key2 a b) v
+toAscList2 = toAscList_ toAscList1
+{-# INLINE toAscList2 #-}
+
+toAscList1 :: Enum a => EnumMapMap (Key1 a) v -> List (Key1 a) v
+toAscList1 = toAscList_ id
+{-# INLINE toAscList1 #-}
 
 toAscList_ :: Enum k => (v -> t) -> EMM k v -> [(k, t)]
 toAscList_ f = foldrWithKey_ (\key x xs -> (key, f x):xs) []
+{-# INLINE toAscList_ #-}
+
+fromList4 :: (Enum a, Enum b, Enum c, Enum d) =>
+             List (Key4 a b c d) v -> EnumMapMap (Key4 a b c d) v
+fromList4 = fromList_ fromList3
+{-# INLINE fromList4 #-}
+
+fromList3 :: (Enum a, Enum b, Enum c) =>
+             List (Key3 a b c) v -> EnumMapMap (Key3 a b c) v
+fromList3 = fromList_ fromList2
+{-# INLINE fromList3 #-}
+
+fromList2 :: (Enum a, Enum b) =>
+             List (Key2 a b) v -> EnumMapMap (Key2 a b) v
+fromList2 = fromList_ fromList1
+{-# INLINE fromList2 #-}
+
+fromList1 :: Enum a => List (Key1 a) v -> EnumMapMap (Key1 a) v
+fromList1 = fromList_ id
+{-# INLINE fromList1 #-}
+
+fromList_ :: Enum k => (t -> v) -> [(k, t)] -> EMM k v
+fromList_ f = foldlStrict ins empty
+    where
+      ins t (k1, x) = insert (Key1 k1) (f x) t
+{-# INLINE fromList_ #-}
 
 {--------------------------------------------------------------------
   Helpers
@@ -402,3 +455,15 @@ highestBitMask x0
          x5 -> case (x5 .|. shiftRL x5 32) of   -- for 64 bit platforms
           x6 -> (x6 `xor` (shiftRL x6 1))
 {-# INLINE highestBitMask #-}
+
+{--------------------------------------------------------------------
+  Utilities
+--------------------------------------------------------------------}
+
+foldlStrict :: (a -> b -> a) -> a -> [b] -> a
+foldlStrict f = go
+  where
+    go z []     = z
+    go z (x:xs) = let z' = f z x in z' `seq` go z' xs
+{-# INLINE foldlStrict #-}
+
