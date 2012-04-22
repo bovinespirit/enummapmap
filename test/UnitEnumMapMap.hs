@@ -15,8 +15,14 @@ tens = [1, 10, 100, 1000, 10000, 100000, 1000000]
 odds :: [Int]
 odds = [1, 3..1000]
 
+fewOdds :: [Int]
+fewOdds = [1, 3..6]
+
 evens :: [Int]
 evens = [2, 4..1000]
+
+fewEvens :: [Int]
+fewEvens = [2, 4..6]
 
 l1tens :: EnumMapMap (Key1 Int) Int
 l1tens = EMM.fromList1 $ zip [1..7] tens
@@ -31,12 +37,12 @@ l4tens = EMM.fromList4 $ zip [1..2] $ repeat $ zip [1..2] $ repeat $
 l1odds :: EnumMapMap (Key1 Int) Int
 l1odds = EMM.fromList1 $ zip odds odds
 l2odds :: EnumMapMap (Key2 Int Int) Int
-l2odds = EMM.fromList2 $ zip odds $ repeat $ zip tens tens
+l2odds = EMM.fromList2 $ zip odds $ repeat $ zip fewOdds fewOdds
 l3odds :: EnumMapMap (Key3 Int Int Int) Int
-l3odds = EMM.fromList3 $ zip odds $ repeat $ zip tens $ repeat $ zip tens tens
+l3odds = EMM.fromList3 $ zip odds $ repeat $ zip fewOdds $ repeat $ zip fewOdds fewOdds
 l4odds :: EnumMapMap (Key4 Int Int Int Int) Int
 l4odds = EMM.fromList4 $ zip odds $ repeat $
-                      zip tens $ repeat $ zip tens $ repeat $ zip tens tens
+                      zip fewOdds $ repeat $ zip fewOdds $ repeat $ zip fewOdds fewOdds
 
 main :: IO ()
 main = hspecX $ do
@@ -95,12 +101,27 @@ main = hspecX $ do
            describe "Level 1" $ do
              it "folds across all values in an EnumMapMap" $
                EMM.foldrWithKey1 (\_ -> (+)) 0 l1tens @?= 1111111
+             it "folds across all keys in an EnumMapMap" $
+               EMM.foldrWithKey (\(Key1 k1) _ -> (+) k1) 0 l1tens @?= 28
+             it "folds across all keys in one level of an EnumMapMap" $
+               EMM.foldrWithKey (\(Key1 k1) _ -> (+) k1) 0 l4tens @?= 3
            describe "Level 2" $ do
              it "folds across all values in an EnumMapMap" $
                EMM.foldrWithKey2 (\_ -> (+)) 0 l2tens @?= 2222222
+             it "folds across all keys in an EnumMapMap" $
+               EMM.foldrWithKey
+                      (\(Key2 k1 k2) _ -> (+) (k1 * k2)) 0 l2tens @?= 84
            describe "Level 3" $ do
              it "folds across all values in an EnumMapMap" $
                EMM.foldrWithKey3 (\_ -> (+)) 0 l3tens @?= 4444444
+             it "folds across all keys in an EnumMapMap" $
+               EMM.foldrWithKey
+                      (\(Key3 k1 k2 k3) _ -> (+) (k1 * k2 * k3)) 0 l3tens @?=
+                      252
            describe "Level 4" $ do
              it "folds across all values in an EnumMapMap" $
                EMM.foldrWithKey4 (\_ -> (+)) 0 l4tens @?= 8888888
+             it "folds across all keys in an EnumMapMap" $
+               EMM.foldrWithKey
+                      (\(Key4 k1 k2 k3 k4) _ -> (+) (k1 * k2 * k3 * k4)) 0 l4tens
+                      @?= 756
