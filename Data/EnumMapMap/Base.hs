@@ -52,17 +52,19 @@ module Data.EnumMapMap.Base (
             toList4
 ) where
 
-import Prelude hiding (lookup,map,filter,foldr,foldl,null)
+import           Prelude hiding (lookup,map,filter,foldr,foldl,null)
 
+import           Control.Applicative (Applicative(pure,(<*>)),(<$>))
 import           Data.Bits
 import qualified Data.Foldable as Foldable
+import           Data.Traversable (Traversable(traverse))
 import           GHC.Exts ( Word(..), Int(..), shiftRL#, build )
 
 data EMM k v = Bin {-# UNPACK #-} !Prefix {-# UNPACK #-} !Mask
                      !(EMM k v) !(EMM k v)
                | Tip {-# UNPACK #-} !Int v
                | Nil
-                 deriving (Show, Eq)
+                 deriving (Show)
 
 type Nat    = Word
 type Key    = Int
@@ -97,9 +99,13 @@ class KEMM k v where
     -- with a value, which it transforms.  This is the basis for most operations.
     -- Dive and associated functions must be defined for every instance so that
     -- the compiler can check that it doesn't recurse forever.
-    dive :: (((Tail k v) -> t) -> Key -> EMM (HeadKey k) (Tail k v) -> t)
+    dive :: (((Tail k v) -> t) -> Key -> EnumMapMap k v -> t)
          -> ((TailKey k) -> (Tail k v) -> t)
          -> k -> EnumMapMap k v -> t
+    walk :: ((Tail k v -> Tail k v)
+                  -> Key -> EnumMapMap k v -> EnumMapMap k v)
+         -> (TailKey k -> Tail k v -> Tail k v)
+         -> k -> EnumMapMap k v -> EnumMapMap k v
     lookup :: k -> EnumMapMap k v -> Maybe v
     member :: k -> EnumMapMap k v -> Bool
     singleton :: k -> v -> EnumMapMap k v
@@ -113,8 +119,11 @@ class KEMM k v where
                   -> k -> v
                   -> EnumMapMap k v
                   -> EnumMapMap k v
+    delete :: k -> EnumMapMap k v -> EnumMapMap k v
     foldrWithKey :: (k -> v -> t -> t) -> t -> EnumMapMap k v -> t
     foldrWithKey' :: (k -> v -> t -> t) -> t -> EnumMapMap k v -> t
+    map :: (v -> t) -> EnumMapMap k v -> EnumMapMap k t
+    mapWithKey :: (k -> v -> t) -> EnumMapMap k v -> EnumMapMap k t
     toList :: EnumMapMap k v -> List k v
     toAscList :: EnumMapMap k v -> List k v
     fromList :: List k v -> EnumMapMap k v
@@ -127,7 +136,8 @@ instance (Enum a, Enum b, Enum c, Enum d) => KEMM (Key4 a b c d) v where
     type HeadKey (Key4 a b c d) = a
     tailKey (Key4 _ k2 k3 k4) = Key3 k2 k3 k4
     headKey (Key4 k1 _ _ _) = fromEnum k1
-    dive f g key = f (g $ tailKey key) $ headKey key
+    dive f g !key = f (g $ tailKey key) $ headKey key
+    walk f g !key = f (g $ tailKey key) $ headKey key
     lookup
         = dive lookup_ lookup
     member !key
@@ -141,8 +151,11 @@ instance (Enum a, Enum b, Enum c, Enum d) => KEMM (Key4 a b c d) v where
         = insertWithKey_ go (headKey key) $ singleton (tailKey key) val
               where
                 go _ = insertWithKey (\_ -> f key) (tailKey key) val
+    delete = walk alter_ delete
     foldrWithKey = foldrWithKey4
     foldrWithKey' = foldrWithKey4'
+    map = map4
+    mapWithKey = mapWithKey4
     toList = toAscList4
     toAscList = toAscList4
     fromList = fromList4
@@ -156,6 +169,7 @@ instance (Enum a, Enum b, Enum c) => KEMM (Key3 a b c) v where
     type HeadKey (Key3 a b c) = a
     headKey (Key3 k1 _ _) = fromEnum k1
     dive f g !key = f (g $ tailKey key) $ headKey key
+    walk f g !key = f (g $ tailKey key) $ headKey key
     lookup
         = dive lookup_ lookup
     member !key
@@ -169,8 +183,11 @@ instance (Enum a, Enum b, Enum c) => KEMM (Key3 a b c) v where
         = insertWithKey_ go (headKey key) $ singleton (tailKey key) val
               where
                 go _ = insertWithKey (\_ -> f key) (tailKey key) val
+    delete = walk alter_ delete
     foldrWithKey = foldrWithKey3
     foldrWithKey' = foldrWithKey3'
+    map = map3
+    mapWithKey = mapWithKey3
     toList = toAscList3
     toAscList = toAscList3
     fromList = fromList3
@@ -184,6 +201,7 @@ instance (Enum a, Enum b) => KEMM (Key2 a b) v where
     type HeadKey (Key2 a b) = a
     headKey (Key2 k1 _) = fromEnum k1
     dive f g key = f (g $ tailKey key) $ headKey key
+    walk f g !key = f (g $ tailKey key) $ headKey key
     lookup
         = dive lookup_ lookup
     member !key
@@ -197,8 +215,11 @@ instance (Enum a, Enum b) => KEMM (Key2 a b) v where
         = insertWithKey_ go (headKey key) $ singleton (tailKey key) val
               where
                 go _ = insertWithKey (\_ -> f key) (tailKey key) val
+    delete = walk alter_ delete
     foldrWithKey = foldrWithKey2
     foldrWithKey' = foldrWithKey2'
+    map = map2
+    mapWithKey = mapWithKey2
     toList = toAscList2
     toAscList = toAscList2
     fromList = fromList2
@@ -212,6 +233,7 @@ instance (Enum a) => KEMM (Key1 a) v where
     type HeadKey (Key1 a) = a
     headKey (Key1 k1) = fromEnum k1
     dive f g key = f (g $ tailKey key) $ headKey key
+    walk f g !key = f (g $ tailKey key) $ headKey key
     lookup
         = dive lookup_ (\_ -> Just)
     member !key
@@ -232,11 +254,54 @@ instance (Enum a) => KEMM (Key1 a) v where
                   Nil                   -> Tip key val
     insertWithKey f !key val emm
         = insertWithKey_ (f key) (headKey key) val emm
+    delete = go . headKey
+        where go !k t =
+                  case t of
+                    Bin p m l r | nomatch k p m -> t
+                                | zero k m      -> bin p m (go k l) r
+                                | otherwise     -> bin p m l (go k r)
+                    Tip ky _ | k == ky          -> Nil
+                             | otherwise        -> t
+                    Nil                         -> Nil
     foldrWithKey = foldrWithKey1
     foldrWithKey' = foldrWithKey1'
+    map = map1
+    mapWithKey = mapWithKey1
     toList = toAscList1
     toAscList = toAscList1
     fromList = fromList1
+
+{---------------------------------------------------------------------
+ Instances
+---------------------------------------------------------------------}
+
+-- Eq
+
+instance Eq v => Eq (EMM k v) where
+  t1 == t2  = equal t1 t2
+  t1 /= t2  = nequal t1 t2
+
+equal :: Eq v => EMM k v -> EMM k v -> Bool
+equal (Bin p1 m1 l1 r1) (Bin p2 m2 l2 r2)
+  = (m1 == m2) && (p1 == p2) && (equal l1 l2) && (equal r1 r2)
+equal (Tip kx x) (Tip ky y)
+  = (kx == ky) && (x==y)
+equal Nil Nil = True
+equal _   _   = False
+
+nequal :: Eq v => EMM k v -> EMM k v -> Bool
+nequal (Bin p1 m1 l1 r1) (Bin p2 m2 l2 r2)
+  = (m1 /= m2) || (p1 /= p2) || (nequal l1 l2) || (nequal r1 r2)
+nequal (Tip kx x) (Tip ky y)
+  = (kx /= ky) || (x/=y)
+nequal Nil Nil = False
+nequal _   _   = True
+
+-- Functor
+
+instance (Enum a) => Functor (EMM a)
+    where
+      fmap f = mapWithKey_ (\_ -> f)
 
 null :: EMM a v -> Bool
 null t = case t of
@@ -260,16 +325,16 @@ find key imm =
       Just x  -> x
 
 lookup_ :: (v -> Maybe t) -> Key -> EMM a v -> Maybe t
-lookup_ f key (Bin _ m l r)
+lookup_ f !key (Bin _ m l r)
           | zero key m  = lookup_ f key l
           | otherwise = lookup_ f key r
-lookup_ f key (Tip kx x)
+lookup_ f !key (Tip kx x)
           | key == kx = f x
           | otherwise = Nothing
 lookup_ _ _ Nil = Nothing
 
 member_ :: (v -> Bool ) -> Key -> EMM a v -> Bool
-member_ f key t =
+member_ f !key t =
     case t of
       Bin _ m l r -> case zero key m of
                       True  -> member_ f key l
@@ -302,6 +367,85 @@ insertWithKey_ f !k x t =
           | otherwise     -> join k (Tip k x) ky t
       Nil                 -> Tip k x
 
+{---------------------------------------------------------------------
+  Delete/Update/Adjust/Alter
+---------------------------------------------------------------------}
+
+-- 'alter_' is used to walk down the tree to find the EMM to actually change.  If
+-- the new EMM is Nil then it's removed from the containing EMM.
+alter_ :: (EMM b v -> EMM b v) -> Key -> EMM a (EMM b v) -> EMM a (EMM b v)
+alter_ f = go
+    where go !k t =
+              case t of
+                Bin p m l r | nomatch k p m -> t
+                            | zero k m      -> binD p m (go k l) r
+                            | otherwise     -> binD p m l (go k r)
+                Tip ky y | k == ky          -> tip k $ f y
+                         | otherwise        -> t
+                Nil                         -> Nil
+
+{---------------------------------------------------------------------
+  Map
+---------------------------------------------------------------------}
+
+map4 :: (Enum a, Enum b, Enum c, Enum d) =>
+        (v -> t)
+     -> EnumMapMap (Key4 a b c d) v
+     -> EnumMapMap (Key4 a b c d) t
+map4 f = mapWithKey4 (\_ -> f)
+
+map3 :: (Enum a, Enum b, Enum c) =>
+        (v -> t)
+     -> EnumMapMap (Key3 a b c) v
+     -> EnumMapMap (Key3 a b c) t
+map3 f = mapWithKey3 (\_ -> f)
+
+map2 :: (Enum a, Enum b) =>
+        (v -> t)
+     -> EnumMapMap (Key2 a b) v
+     -> EnumMapMap (Key2 a b) t
+map2 f = mapWithKey2 (\_ -> f)
+
+map1 ::  Enum a =>
+         (v -> t)
+     -> EnumMapMap (Key1 a) v
+     -> EnumMapMap (Key1 a) t
+map1 f = mapWithKey1 (\_ -> f)
+
+mapWithKey4 :: (Enum a, Enum b, Enum c, Enum d) =>
+               (Key4 a b c d -> v -> t)
+            -> EnumMapMap (Key4 a b c d) v
+            -> EnumMapMap (Key4 a b c d) t
+mapWithKey4 f = mapWithKey_ go
+    where go k1 = mapWithKey3 (\(Key3 k2 k3 k4) -> f $ Key4 k1 k2 k3 k4)
+
+mapWithKey3 :: (Enum a, Enum b, Enum c) =>
+               (Key3 a b c -> v -> t)
+            -> EnumMapMap (Key3 a b c) v
+            -> EnumMapMap (Key3 a b c) t
+mapWithKey3 f = mapWithKey_ go
+    where go k1 = mapWithKey2 (\(Key2 k2 k3) -> f $ Key3 k1 k2 k3)
+
+mapWithKey2 :: (Enum a, Enum b) =>
+               (Key2 a b -> v -> t)
+            -> EnumMapMap (Key2 a b) v
+            -> EnumMapMap (Key2 a b) t
+mapWithKey2 f = mapWithKey_ go
+    where go k1 = mapWithKey1 (\(Key1 k2) -> f $ Key2 k1 k2)
+
+mapWithKey1 :: Enum a =>
+               (Key1 a -> v -> t)
+            -> EnumMapMap (Key1 a) v
+            -> EnumMapMap (Key1 a) t
+mapWithKey1 f = mapWithKey_ (f . Key1)
+
+mapWithKey_ :: Enum k => (k -> v -> t) -> EMM k v -> EMM k t
+mapWithKey_ f = go
+    where
+      go (Bin p m l r) = Bin p m (go l) (go r)
+      go (Tip k x)     = Tip k (f (toEnum k) x)
+      go Nil           = Nil
+
 {--------------------------------------------------------------------
   Fold
 --------------------------------------------------------------------}
@@ -309,7 +453,7 @@ insertWithKey_ f !k x t =
 foldrWithKey1 :: (Enum a) =>
                  ((Key1 a) -> v -> t -> t)
               -> t -> EnumMapMap (Key1 a) v -> t
-foldrWithKey1 f = foldrWithKey_ (\k1 -> f $ Key1 k1)
+foldrWithKey1 f = foldrWithKey_ (f . Key1)
 {-# INLINE foldrWithKey1 #-}
 
 foldrWithKey2 :: (Enum a, Enum b) =>
@@ -500,6 +644,19 @@ bin _ _ l Nil = l
 bin _ _ Nil r = r
 bin p m l r   = Bin p m l r
 {-# INLINE bin #-}
+
+binD :: Prefix -> Mask -> EMM a (EMM b v) -> EMM a (EMM b v) -> EMM a (EMM b v)
+binD _ _ l Nil = l
+binD _ _ Nil r = r
+binD _ _ l (Tip _ Nil) = l
+binD _ _ (Tip _ Nil) r = r
+binD p m l r = Bin p m l r
+{-# INLINE binD #-}
+
+tip :: Key -> EMM b v -> EMM a (EMM b v)
+tip _ Nil = Nil
+tip !k val = Tip k val
+{-# INLINE tip #-}
 
 {--------------------------------------------------------------------
   Endian independent bit twiddling
