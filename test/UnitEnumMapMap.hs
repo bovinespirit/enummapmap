@@ -47,34 +47,34 @@ l4odds = EMM.fromList4 $ zip odds $ repeat $
 main :: IO ()
 main = hspecX $ do
          describe "empty" $ do
-                  it "creates an empty EnumMapMap" $
-                         (EMM.null $ EMM.empty)
-                  it "has a size of 0" $
-                         0 @=? (EMM.size $ EMM.empty)
+           it "creates an empty EnumMapMap" $
+             (EMM.null $ EMM.empty)
+           it "has a size of 0" $
+             0 @=? (EMM.size $ EMM.empty)
 
          describe "fromList" $ do
-                  it "is the inverse of toList on 1 level" $
-                     (EMM.fromList1 $ EMM.toList1 l1odds) @?= l1odds
-                  it "is the inverse of toList on 2 levels" $
-                     (EMM.fromList2 $ EMM.toList2 l2odds) @?= l2odds
-                  it "is the inverse of toList on 3 levels" $
-                     (EMM.fromList3 $ EMM.toList3 l3odds) @?= l3odds
-                  it "is the inverse of toList on 4 levels" $
-                     (EMM.fromList4 $ EMM.toList4 l4odds) @?= l4odds
+           it "is the inverse of toList on 1 level" $
+             (EMM.fromList1 $ EMM.toList1 l1odds) @?= l1odds
+           it "is the inverse of toList on 2 levels" $
+             (EMM.fromList2 $ EMM.toList2 l2odds) @?= l2odds
+           it "is the inverse of toList on 3 levels" $
+             (EMM.fromList3 $ EMM.toList3 l3odds) @?= l3odds
+           it "is the inverse of toList on 4 levels" $
+             (EMM.fromList4 $ EMM.toList4 l4odds) @?= l4odds
 
          describe "insert" $ do
            it "" True
            describe "Level 1" $ do
              it "creates a value in an empty EMM" $
-                                EMM.insert (Key1 1) 1 EMM.empty @?=
-                                (EMM.fromList1 [(1, 1)]
-                                    :: EnumMapMap (Key1 Int) Int)
+               EMM.insert (Key1 1) 1 EMM.empty @?=
+                      (EMM.fromList1 [(1, 1)]
+                           :: EnumMapMap (Key1 Int) Int)
              it "adds another value to an EMM" $
-                                let
-                                    emm :: EnumMapMap (Key1 Int) Int
-                                    emm = EMM.fromList1 [(2, 2)] in
-                                EMM.insert (Key1 1) 1 emm @?=
-                                EMM.fromList1 [(1, 1), (2, 2)]
+               let
+                   emm :: EnumMapMap (Key1 Int) Int
+                   emm = EMM.fromList1 [(2, 2)] in
+               EMM.insert (Key1 1) 1 emm @?=
+               EMM.fromList1 [(1, 1), (2, 2)]
              it "overwrites a value with the same key in an EMM" $
                let emm :: EnumMapMap (Key1 Int) Int
                    emm = EMM.fromList1 [(1, 1), (2, 2)] in
@@ -83,65 +83,65 @@ main = hspecX $ do
 
            describe "Level 2" $ do
              it "creates a value in an empty EMM" $
-                                EMM.insert (Key2 1 1) 1 EMM.empty @?=
-                                (EMM.fromList2 [(1, [(1, 1)])]
-                                    :: EnumMapMap (Key2 Int Int) Int)
+               EMM.insert (Key2 1 1) 1 EMM.empty @?=
+                             (EMM.fromList2 [(1, [(1, 1)])]
+                                  :: EnumMapMap (Key2 Int Int) Int)
              it "adds another value to an EMM on level 1" $
-                                let
-                                    emm :: EnumMapMap (Key2 Int Int) Int
-                                    emm = EMM.fromList2 [(1, [(2, 2)])]
-                                in
-                                EMM.insert (Key2 1 1) 1 emm @?=
-                                EMM.fromList2 [(1, [(1, 1), (2, 2)])]
+               let
+                   emm :: EnumMapMap (Key2 Int Int) Int
+                   emm = EMM.fromList2 [(1, [(2, 2)])]
+               in
+                 EMM.insert (Key2 1 1) 1 emm @?=
+                 EMM.fromList2 [(1, [(1, 1), (2, 2)])]
              it "adds another value to an EMM on level 2" $
-                                let
-                                    emm :: EnumMapMap (Key2 Int Int) Int
-                                    emm = EMM.fromList2 [(1, [(1, 1)])]
-                                in
-                                EMM.insert (Key2 2 2) 2 emm @?=
-                                EMM.fromList2 [(1, [(1, 1)]), (2, [(2, 2)])]
+               let
+                   emm :: EnumMapMap (Key2 Int Int) Int
+                   emm = EMM.fromList2 [(1, [(1, 1)])]
+               in
+                 EMM.insert (Key2 2 2) 2 emm @?=
+                 EMM.fromList2 [(1, [(1, 1)]), (2, [(2, 2)])]
 
          describe "insertWithKey" $ do
            let undef = undefined -- fail if this is called
            it "" True
            describe "Level 1" $ do
              it "creates a value in an empty EMM" $
-                                EMM.insertWithKey undef (Key1 1) 1 EMM.empty @?=
-                                (EMM.fromList1 [(1, 1)]
-                                    :: EnumMapMap (Key1 Int) Int)
+               EMM.insertWithKey undef (Key1 1) 1 EMM.empty @?=
+                      (EMM.fromList1 [(1, 1)]
+                           :: EnumMapMap (Key1 Int) Int)
              it "adds another value to an EMM" $
-                                let
-                                    emm :: EnumMapMap (Key1 Int) Int
-                                    emm = EMM.fromList1 [(2, 2)] in
-                                EMM.insertWithKey undef (Key1 1) 1 emm @?=
-                                EMM.fromList1 [(1, 1), (2, 2)]
+               let
+                   emm :: EnumMapMap (Key1 Int) Int
+                   emm = EMM.fromList1 [(2, 2)] in
+               EMM.insertWithKey undef (Key1 1) 1 emm @?=
+               EMM.fromList1 [(1, 1), (2, 2)]
              it "applies the function when overwriting" $
                let emm :: EnumMapMap (Key1 Int) Int
                    emm = EMM.fromList1 [(1, 1), (2, 4)]
                    f (Key1 k1) o n = k1 * (o + n)
                in
-               EMM.insertWithKey f (Key1 2) 3 emm @?=
-                  EMM.fromList1 [(1, 1), (2, 14)]
+                 EMM.insertWithKey f (Key1 2) 3 emm @?=
+                    EMM.fromList1 [(1, 1), (2, 14)]
 
            describe "Level 2" $ do
              it "creates a value in an empty EMM" $
-                                EMM.insertWithKey undef (Key2 1 1) 1 EMM.empty @?=
-                                (EMM.fromList2 [(1, [(1, 1)])]
-                                    :: EnumMapMap (Key2 Int Int) Int)
+               EMM.insertWithKey undef (Key2 1 1) 1 EMM.empty @?=
+                      (EMM.fromList2 [(1, [(1, 1)])]
+                           :: EnumMapMap (Key2 Int Int) Int)
              it "adds another value to an EMM on level 1" $
-                                let
-                                    emm :: EnumMapMap (Key2 Int Int) Int
-                                    emm = EMM.fromList2 [(1, [(2, 2)])]
-                                in
-                                EMM.insertWithKey undef (Key2 1 1) 1 emm @?=
-                                EMM.fromList2 [(1, [(1, 1), (2, 2)])]
+               let
+                   emm :: EnumMapMap (Key2 Int Int) Int
+                   emm = EMM.fromList2 [(1, [(2, 2)])]
+               in
+                 EMM.insertWithKey undef (Key2 1 1) 1 emm @?=
+                    EMM.fromList2 [(1, [(1, 1), (2, 2)])]
              it "adds another value to an EMM on level 2" $
-                                let
-                                    emm :: EnumMapMap (Key2 Int Int) Int
-                                    emm = EMM.fromList2 [(1, [(1, 1)])]
-                                in
-                                EMM.insertWithKey undef (Key2 2 2) 2 emm @?=
-                                EMM.fromList2 [(1, [(1, 1)]), (2, [(2, 2)])]
+               let
+                   emm :: EnumMapMap (Key2 Int Int) Int
+                   emm = EMM.fromList2 [(1, [(1, 1)])]
+               in
+                 EMM.insertWithKey undef (Key2 2 2) 2 emm @?=
+                    EMM.fromList2 [(1, [(1, 1)]), (2, [(2, 2)])]
              it "applies the function when overwriting" $
                let emm :: EnumMapMap (Key2 Int Int) Int
                    emm = EMM.fromList2 [(2, [(3, 1), (4, 5)])]
