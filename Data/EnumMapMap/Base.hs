@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE MagicHash, DeriveDataTypeable, StandaloneDeriving,
   TypeFamilies, BangPatterns, FlexibleContexts, FlexibleInstances,
   MultiParamTypeClasses #-}
@@ -40,6 +39,13 @@ module Data.EnumMapMap.Base (
             foldrWithKey2,
             foldrWithKey3,
             foldrWithKey4,
+            unions,
+            union,
+            union1,
+            union2,
+            union3,
+            union4,
+            unionWith,
             unionWithKey1,
             unionWithKey2,
             unionWithKey3,
@@ -59,8 +65,10 @@ module Data.EnumMapMap.Base (
 import           Prelude hiding (lookup,map,filter,foldr,foldl,null)
 
 import           Control.Applicative (Applicative(pure,(<*>)),(<$>))
+import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import qualified Data.Foldable as Foldable
+import           Data.Monoid (Monoid(..))
 import           Data.Traversable (Traversable(traverse))
 import           GHC.Exts ( Word(..), Int(..), shiftRL#, build )
 
@@ -94,6 +102,7 @@ data Key0         = Key0
 class KEMM k v where
     type EnumMapMap k v :: *
     type List k v :: *
+    type PubKey k :: *
     type TailKey k :: *
     type Tail k v :: *
     type HeadKey k :: *
@@ -103,8 +112,8 @@ class KEMM k v where
     -- with a value, which it transforms.  This is the basis for many operations.
     -- Dive and associated functions must be defined for every instance so that
     -- the compiler can check that it doesn't recurse forever.
-    dive :: (((Tail k v) -> t) -> Key -> EnumMapMap k v -> t)
-         -> ((TailKey k) -> (Tail k v) -> t)
+    dive :: ((Tail k v -> t) -> Key -> EnumMapMap k v -> t)
+         -> (TailKey k -> Tail k v -> t)
          -> k -> EnumMapMap k v -> t
     walk :: ((Tail k v -> Tail k v)
                   -> Key -> EnumMapMap k v -> EnumMapMap k v)
@@ -128,8 +137,12 @@ class KEMM k v where
     foldrWithKey' :: (k -> v -> t -> t) -> t -> EnumMapMap k v -> t
     map :: (v -> t) -> EnumMapMap k v -> EnumMapMap k t
     mapWithKey :: (k -> v -> t) -> EnumMapMap k v -> EnumMapMap k t
+    unions :: [EnumMapMap k v] -> EnumMapMap k v
+    union :: EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
     unionWithKey :: (k -> v -> v -> v)
                  -> EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
+    unionWith :: (v -> v -> v)
+              -> EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
     toList :: EnumMapMap k v -> List k v
     toAscList :: EnumMapMap k v -> List k v
     fromList :: List k v -> EnumMapMap k v
@@ -137,6 +150,7 @@ class KEMM k v where
 instance (Enum a, Enum b, Enum c, Enum d) => KEMM (Key4 a b c d) v where
     type EnumMapMap (Key4 a b c d) v = EMM4 a b c d v
     type List (Key4 a b c d) v = [(a, [(b, [(c, [(d, v)])])])]
+    type PubKey (Key4 a b c d) = (a, b, c, d)
     type TailKey (Key4 a b c d) = Key3 b c d
     type Tail (Key4 a b c d) v = EMM3 b c d v
     type HeadKey (Key4 a b c d) = a
@@ -162,7 +176,10 @@ instance (Enum a, Enum b, Enum c, Enum d) => KEMM (Key4 a b c d) v where
     foldrWithKey' = foldrWithKey4'
     map = map4
     mapWithKey = mapWithKey4
+    unions = foldlStrict union_ empty
+    union = union4
     unionWithKey = unionWithKey4
+    unionWith f = unionWithKey4 (\_ -> f)
     toList = toAscList4
     toAscList = toAscList4
     fromList = fromList4
@@ -170,6 +187,7 @@ instance (Enum a, Enum b, Enum c, Enum d) => KEMM (Key4 a b c d) v where
 instance (Enum a, Enum b, Enum c) => KEMM (Key3 a b c) v where
     type EnumMapMap (Key3 a b c) v = EMM3 a b c v
     type List (Key3 a b c) v = [(a, [(b, [(c, v)])])]
+    type PubKey (Key3 a b c) = (a, b, c)
     type TailKey (Key3 a b c) = Key2 b c
     type Tail (Key3 a b c) v = EMM2 b c v
     tailKey (Key3 _ k2 k3) = Key2 k2 k3
@@ -195,7 +213,10 @@ instance (Enum a, Enum b, Enum c) => KEMM (Key3 a b c) v where
     foldrWithKey' = foldrWithKey3'
     map = map3
     mapWithKey = mapWithKey3
+    unions = foldlStrict union_ empty
+    union = union3
     unionWithKey = unionWithKey3
+    unionWith f = unionWithKey3 (\_ -> f)
     toList = toAscList3
     toAscList = toAscList3
     fromList = fromList3
@@ -203,6 +224,7 @@ instance (Enum a, Enum b, Enum c) => KEMM (Key3 a b c) v where
 instance (Enum a, Enum b) => KEMM (Key2 a b) v where
     type EnumMapMap (Key2 a b) v = EMM2 a b v
     type List (Key2 a b) v = [(a, [(b, v)])]
+    type PubKey (Key2 a b) = (a, b)
     type TailKey (Key2 a b) = Key1 b
     type Tail (Key2 a b) v = EMM1 b v
     tailKey (Key2 _ k2) = Key1 k2
@@ -228,7 +250,10 @@ instance (Enum a, Enum b) => KEMM (Key2 a b) v where
     foldrWithKey' = foldrWithKey2'
     map = map2
     mapWithKey = mapWithKey2
+    unions = foldlStrict union_ empty
+    union = union2
     unionWithKey = unionWithKey2
+    unionWith f = unionWithKey2 (\_ -> f)
     toList = toAscList2
     toAscList = toAscList2
     fromList = fromList2
@@ -236,6 +261,7 @@ instance (Enum a, Enum b) => KEMM (Key2 a b) v where
 instance (Enum a) => KEMM (Key1 a) v where
     type EnumMapMap (Key1 a) v = EMM1 a v
     type List (Key1 a) v = [(a, v)]
+    type PubKey (Key1 a) = a
     type TailKey (Key1 a) = Key0
     type Tail (Key1 a) v = v
     tailKey (Key1 _) = Key0
@@ -276,7 +302,10 @@ instance (Enum a) => KEMM (Key1 a) v where
     foldrWithKey' = foldrWithKey1'
     map = map1
     mapWithKey = mapWithKey1
+    unions = foldlStrict union_ empty
+    union = union1
     unionWithKey = unionWithKey1
+    unionWith f = unionWithKey1 (\_ -> f)
     toList = toAscList1
     toAscList = toAscList1
     fromList = fromList1
@@ -307,11 +336,36 @@ nequal (Tip kx x) (Tip ky y)
 nequal Nil Nil = False
 nequal _   _   = True
 
--- Functor
-
 instance (Enum a) => Functor (EMM a)
     where
       fmap f = mapWithKey_ (\_ -> f)
+
+instance Enum a => Monoid (EMM a v) where
+    mempty = empty
+    mappend = union_
+    mconcat = foldlStrict union_ empty
+
+instance Foldable.Foldable (EMM a) where
+  fold Nil = mempty
+  fold (Tip _ v) = v
+  fold (Bin _ _ l r) = Foldable.fold l `mappend` Foldable.fold r
+  foldMap _ Nil = mempty
+  foldMap f (Tip _k v) = f v
+  foldMap f (Bin _ _ l r) = Foldable.foldMap f l `mappend` Foldable.foldMap f r
+
+instance Enum a => Traversable (EMM a) where
+    traverse _ Nil = pure Nil
+    traverse f (Tip k v) = Tip k <$> f v
+    traverse f (Bin p m l r) = Bin p m <$> traverse f l <*> traverse f r
+
+instance NFData v => NFData (EMM a v) where
+    rnf Nil = ()
+    rnf (Tip _ v) = rnf v
+    rnf (Bin _ _ l r) = rnf l `seq` rnf r
+
+{--------------------------------------------------------------------
+  Query
+--------------------------------------------------------------------}
 
 null :: EMM a v -> Bool
 null t = case t of
@@ -330,7 +384,7 @@ empty = Nil
 find :: (KEMM k v, Show k) => k -> EnumMapMap k v -> v
 find key imm =
     case lookup key imm of
-      Nothing -> error ("IntMap.find: key " ++ show key ++
+      Nothing -> error ("EnumMapMap.find: key " ++ show key ++
                         " is not an element of the map")
       Just x  -> x
 
@@ -614,6 +668,50 @@ fromList_ f = foldlStrict ins empty
   Union
 --------------------------------------------------------------------}
 
+union4 :: (Enum a, Enum b, Enum c, Enum d) =>
+          EnumMapMap (Key4 a b c d) v
+       -> EnumMapMap (Key4 a b c d) v
+       -> EnumMapMap (Key4 a b c d) v
+union4 = unionWithKey_ (\_ -> union3)
+
+union3 :: (Enum a, Enum b, Enum c) =>
+          EnumMapMap (Key3 a b c) v
+       -> EnumMapMap (Key3 a b c) v
+       -> EnumMapMap (Key3 a b c) v
+union3 = unionWithKey_ (\_ -> union2)
+
+union2 :: (Enum a, Enum b) =>
+          EnumMapMap (Key2 a b) v
+       -> EnumMapMap (Key2 a b) v
+       -> EnumMapMap (Key2 a b) v
+union2 = unionWithKey_ (\_ -> union1)
+
+union1 :: Enum a =>
+          EnumMapMap (Key1 a) v
+       -> EnumMapMap (Key1 a) v
+       -> EnumMapMap (Key1 a) v
+union1 = union_
+
+union_ :: Enum a => EMM a v -> EMM a v -> EMM a v
+union_ t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
+       | shorter m1 m2 = go1
+       | shorter m2 m1 = go2
+       | p1 == p2      = Bin p1 m1 (union_ l1 l2) (union_ r1 r2)
+       | otherwise     = join p1 t1 p2 t2
+       where
+         go1 | nomatch p2 p1 m1 = join p1 t1 p2 t2
+             | zero p2 m1       = Bin p1 m1 (union_ l1 t2) r1
+             | otherwise        = Bin p1 m1 l1 (union_ r1 t2)
+
+         go2 | nomatch p1 p2 m2 = join p1 t1 p2 t2
+             | zero p1 m2       = Bin p2 m2 (union_ t1 l2) r2
+             | otherwise        = Bin p2 m2 l2 (union_ t1 r2)
+
+union_ (Tip k x) t = insert (Key1 $ toEnum k) x t
+union_ t (Tip k x) = insertWith (\_ y -> y) (Key1 $ toEnum k) x t
+union_ Nil t       = t
+union_ t Nil       = t
+
 unionWithKey4 :: (Enum a, Enum b, Enum c, Enum d) =>
                  (Key4 a b c d -> v -> v -> v)
               -> EnumMapMap (Key4 a b c d) v
@@ -680,10 +778,6 @@ unionWithKey_ _ t Nil        = t
 natFromInt :: Int -> Nat
 natFromInt = fromIntegral
 {-# INLINE natFromInt #-}
-
-natFromEnum :: (Enum a) => a -> Nat
-natFromEnum = natFromInt . fromEnum
-{-# INLINE natFromEnum #-}
 
 intFromNat :: Nat -> Int
 intFromNat = fromIntegral

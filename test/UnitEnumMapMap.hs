@@ -24,6 +24,12 @@ evens = [2, 4..1000]
 fewEvens :: [Int]
 fewEvens = [2, 4..6]
 
+alls :: [Int]
+alls = [1, 2..1000]
+
+fewAlls :: [Int]
+fewAlls = [1, 2..6]
+
 l1tens :: EnumMapMap (Key1 Int) Int
 l1tens = EMM.fromList1 $ zip [1..7] tens
 l2tens :: EnumMapMap (Key2 Int Int) Int
@@ -43,6 +49,11 @@ l3odds = EMM.fromList3 $ zip odds $ repeat $ zip fewOdds $ repeat $ zip fewOdds 
 l4odds :: EnumMapMap (Key4 Int Int Int Int) Int
 l4odds = EMM.fromList4 $ zip odds $ repeat $
                       zip fewOdds $ repeat $ zip fewOdds $ repeat $ zip fewOdds fewOdds
+l1evens :: EnumMapMap (Key1 Int) Int
+l1evens = EMM.fromList1 $ zip evens evens
+
+l1alls :: EnumMapMap (Key1 Int) Int
+l1alls = EMM.fromList1 $ zip alls alls
 
 main :: IO ()
 main = hspecX $ do
@@ -180,3 +191,9 @@ main = hspecX $ do
                EMM.foldrWithKey
                       (\(Key4 k1 k2 k3 k4) _ -> (+) (k1 * k2 * k3 * k4)) 0 l4tens
                       @?= 756
+
+         describe "union" $ do
+           it "" True
+           describe "Level 1" $ do
+             it "includes every key from each EnumMapMap" $
+               (EMM.union1 l1odds l1evens) @?= l1alls
