@@ -43,5 +43,5 @@ Test-Suite test-enummapmap-intmap
                       QuickCheck >= 2,
                       hspec >= 0.9,
                       deepseq,
-                      containers >= 0.4,
+                      containers >= 0.4.2,
                       enummapmap

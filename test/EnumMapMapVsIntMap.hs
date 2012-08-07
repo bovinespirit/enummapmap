@@ -369,3 +369,22 @@ main = hspecX $ do
              runPropDuoL4 (IM.unionWithKey f) (EMM.unionWithKey
                                               (\(EMM.Key4 k _ _ _) -> f k))
 
+    describe "intersectionWithKey" $ do
+    -- Compatible with Containers 0.4.2, not 0.5
+        let f a b c = (a + b) * c
+        prop "Level 1" $
+             runPropDuoL (IM.intersectionWithKey f)
+                             (EMM.intersectionWithKey1
+                                     (\(EMM.Key1 k) a b -> Just $ f k a b))
+        prop "Level 2" $
+             runPropDuoL2 (IM.intersectionWithKey f)
+                             (EMM.intersectionWithKey2
+                                     (\(EMM.Key2 k _) a b -> Just $ f k a b))
+        prop "Level 3" $
+             runPropDuoL3 (IM.intersectionWithKey f)
+                             (EMM.intersectionWithKey3
+                                     (\(EMM.Key3 k _ _) a b -> Just $ f k a b))
+        prop "Level 4" $
+             runPropDuoL4 (IM.intersectionWithKey f)
+                             (EMM.intersectionWithKey4
+                                     (\(EMM.Key4 k _ _ _) a b -> Just $ f k a b))

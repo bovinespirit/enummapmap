@@ -66,6 +66,10 @@ module Data.EnumMapMap.Base (
             unionWithKey2,
             unionWithKey3,
             unionWithKey4,
+            intersectionWithKey1,
+            intersectionWithKey2,
+            intersectionWithKey3,
+            intersectionWithKey4,
             fromList,
             fromList1,
             fromList2,
@@ -86,7 +90,7 @@ import           Data.Bits
 import qualified Data.Foldable as Foldable
 import           Data.Monoid (Monoid(..))
 import           Data.Traversable (Traversable(traverse))
-import           GHC.Exts ( Word(..), Int(..), shiftRL#, build )
+import           GHC.Exts (Word(..), Int(..), shiftRL#)
 
 data EMM k v = Bin {-# UNPACK #-} !Prefix {-# UNPACK #-} !Mask
                      !(EMM k v) !(EMM k v)
@@ -812,6 +816,97 @@ unionWithKey_ _ Nil t        = t
 unionWithKey_ _ t Nil        = t
 
 {--------------------------------------------------------------------
+  Intersection
+--------------------------------------------------------------------}
+
+-- These are based on the containers-0.5 API, not 0.4.2
+
+intersectionWithKey4 :: (Enum a, Enum b, Enum c, Enum d) =>
+                        (Key4 a b c d -> v1 -> v2 -> Maybe v3)
+                     -> EnumMapMap (Key4 a b c d) v1
+                     -> EnumMapMap (Key4 a b c d) v2
+                     -> EnumMapMap (Key4 a b c d) v3
+intersectionWithKey4 f = intersectionWithKey_ go
+    where
+      go k1 = intersectionWithKey3 (\(Key3 k2 k3 k4) -> f $ Key4 (toEnum k1) k2
+                                                        k3 k4)
+
+intersectionWithKey3 :: (Enum a, Enum b, Enum c) =>
+                        (Key3 a b c -> v1 -> v2 -> Maybe v3)
+                     -> EnumMapMap (Key3 a b c) v1
+                     -> EnumMapMap (Key3 a b c) v2
+                     -> EnumMapMap (Key3 a b c) v3
+intersectionWithKey3 f = intersectionWithKey_ go
+    where
+      go k1 = intersectionWithKey2 (\(Key2 k2 k3) -> f $ Key3 (toEnum k1) k2 k3)
+
+intersectionWithKey2 :: (Enum a, Enum b) =>
+                        (Key2 a b -> v1 -> v2 -> Maybe v3)
+                     -> EnumMapMap (Key2 a b) v1
+                     -> EnumMapMap (Key2 a b) v2
+                     -> EnumMapMap (Key2 a b) v3
+intersectionWithKey2 f = intersectionWithKey_ go
+    where go k1 = intersectionWithKey1 (\(Key1 k2) -> f $ Key2 (toEnum k1) k2)
+
+intersectionWithKey1 :: (Enum a) =>
+                        (Key1 a -> v1 -> v2 -> Maybe v3)
+                     -> EnumMapMap (Key1 a) v1
+                     -> EnumMapMap (Key1 a) v2
+                     -> EnumMapMap (Key1 a) v3
+intersectionWithKey1 f t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
+    | shorter m1 m2 = inter1
+    | shorter m2 m1 = inter2
+    | p1 == p2      = bin p1 m1 (intersectionWithKey1 f l1 l2) $
+                          intersectionWithKey1 f r1 r2
+    | otherwise     = Nil
+    where
+      inter1 | nomatch p2 p1 m1 = Nil
+             | zero p2 m1       = intersectionWithKey1 f l1 t2
+             | otherwise        = intersectionWithKey1 f r1 t2
+
+      inter2 | nomatch p1 p2 m2 = Nil
+             | zero p1 m2       = intersectionWithKey1 f t1 l2
+             | otherwise        = intersectionWithKey1 f t1 r2
+intersectionWithKey1 f (Tip k x) t2
+  = case lookup_ (Just . id) k t2 >>= (\y -> f (Key1 $ toEnum k) x y) of
+      Just y' -> Tip k y'
+      Nothing -> Nil
+intersectionWithKey1 f t1 (Tip k y)
+  = case lookup_ (Just . id) k t1 >>= (\x -> f (Key1 $ toEnum k) x y) of
+      Just x'  -> Tip k x'
+      Nothing -> Nil
+intersectionWithKey1 _ Nil _ = Nil
+intersectionWithKey1 _ _ Nil = Nil
+
+intersectionWithKey_ :: (Enum a, Enum b) =>
+                        (Key -> EMM b v1 -> EMM b v2 -> EMM b v3)
+                     -> EMM a (EMM b v1) -> EMM a (EMM b v2) -> EMM a (EMM b v3)
+intersectionWithKey_ f t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
+    | shorter m1 m2 = inter1
+    | shorter m2 m1 = inter2
+    | p1 == p2      = binD p1 m1 (intersectionWithKey_ f l1 l2) $
+                          intersectionWithKey_ f r1 r2
+    | otherwise     = Nil
+    where
+      inter1 | nomatch p2 p1 m1 = Nil
+             | zero p2 m1       = intersectionWithKey_ f l1 t2
+             | otherwise        = intersectionWithKey_ f r1 t2
+
+      inter2 | nomatch p1 p2 m2 = Nil
+             | zero p1 m2       = intersectionWithKey_ f t1 l2
+             | otherwise        = intersectionWithKey_ f t1 r2
+intersectionWithKey_ f (Tip k x) t2
+    = case lookup_ (Just . id) k t2 >>= (\y -> return $ f k x y) of
+        Just y'  -> tip k y'
+        Nothing -> Nil
+intersectionWithKey_ f t1 (Tip k y)
+    = case lookup_ (Just . id) k t1 >>= (\x -> return $ f k x y) of
+        Just y'  -> tip k y'
+        Nothing -> Nil
+intersectionWithKey_ _ Nil _ = Nil
+intersectionWithKey_ _ _ Nil = Nil
+
+{--------------------------------------------------------------------
   Helpers
 --------------------------------------------------------------------}
 
@@ -852,6 +947,9 @@ bin _ _ Nil r = r
 bin p m l r   = Bin p m l r
 {-# INLINE bin #-}
 
+{--------------------------------------------------------------------
+  @binD@ assures that we never have empty trees in the next level
+--------------------------------------------------------------------}
 binD :: Prefix -> Mask -> EMM a (EMM b v) -> EMM a (EMM b v) -> EMM a (EMM b v)
 binD _ _ l Nil = l
 binD _ _ Nil r = r
