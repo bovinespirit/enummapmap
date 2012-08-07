@@ -34,11 +34,22 @@ module Data.EnumMapMap.Base (
             insert,
             insertWith,
             insertWithKey,
+            delete,
             foldrWithKey,
             foldrWithKey1,
             foldrWithKey2,
             foldrWithKey3,
             foldrWithKey4,
+            map,
+            map1,
+            map2,
+            map3,
+            map4,
+            mapWithKey,
+            mapWithKey1,
+            mapWithKey2,
+            mapWithKey3,
+            mapWithKey4,
             unions,
             union,
             union1,
@@ -46,6 +57,11 @@ module Data.EnumMapMap.Base (
             union3,
             union4,
             unionWith,
+            unionWith1,
+            unionWith2,
+            unionWith3,
+            unionWith4,
+            unionWithKey,
             unionWithKey1,
             unionWithKey2,
             unionWithKey3,
@@ -711,6 +727,34 @@ union_ (Tip k x) t = insert (Key1 $ toEnum k) x t
 union_ t (Tip k x) = insertWith (\_ y -> y) (Key1 $ toEnum k) x t
 union_ Nil t       = t
 union_ t Nil       = t
+
+unionWith4 :: (Enum a, Enum b, Enum c, Enum d) =>
+              (v -> v -> v)
+           -> EnumMapMap (Key4 a b c d) v
+           -> EnumMapMap (Key4 a b c d) v
+           -> EnumMapMap (Key4 a b c d) v
+unionWith4 f = unionWithKey4 (\_ -> f)
+
+unionWith3 :: (Enum a, Enum b, Enum c) =>
+                 (v -> v -> v)
+              -> EnumMapMap (Key3 a b c) v
+              -> EnumMapMap (Key3 a b c) v
+              -> EnumMapMap (Key3 a b c) v
+unionWith3 f = unionWithKey3 (\_ -> f)
+
+unionWith2 :: (Enum a, Enum b) =>
+              (v -> v -> v)
+           -> EnumMapMap (Key2 a b) v
+           -> EnumMapMap (Key2 a b) v
+           -> EnumMapMap (Key2 a b) v
+unionWith2 f = unionWithKey2 (\_ -> f)
+
+unionWith1 :: (Enum a) =>
+              (v -> v -> v)
+           -> EnumMapMap (Key1 a) v
+           -> EnumMapMap (Key1 a) v
+           -> EnumMapMap (Key1 a) v
+unionWith1 f = unionWithKey1 (\_ -> f)
 
 unionWithKey4 :: (Enum a, Enum b, Enum c, Enum d) =>
                  (Key4 a b c d -> v -> v -> v)
