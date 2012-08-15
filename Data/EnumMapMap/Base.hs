@@ -70,6 +70,7 @@ module Data.EnumMapMap.Base (
             intersectionWithKey2,
             intersectionWithKey3,
             intersectionWithKey4,
+            mergeWithKey1,
             fromList,
             fromList1,
             fromList2,
@@ -196,7 +197,7 @@ instance (Enum a, Enum b, Enum c, Enum d) => KEMM (Key4 a b c d) v where
     foldrWithKey' = foldrWithKey4'
     map = map4
     mapWithKey = mapWithKey4
-    unions = foldlStrict union_ empty
+    unions = foldlStrict union4 empty
     union = union4
     unionWithKey = unionWithKey4
     unionWith f = unionWithKey4 (\_ -> f)
@@ -233,7 +234,7 @@ instance (Enum a, Enum b, Enum c) => KEMM (Key3 a b c) v where
     foldrWithKey' = foldrWithKey3'
     map = map3
     mapWithKey = mapWithKey3
-    unions = foldlStrict union_ empty
+    unions = foldlStrict union3 empty
     union = union3
     unionWithKey = unionWithKey3
     unionWith f = unionWithKey3 (\_ -> f)
@@ -270,7 +271,7 @@ instance (Enum a, Enum b) => KEMM (Key2 a b) v where
     foldrWithKey' = foldrWithKey2'
     map = map2
     mapWithKey = mapWithKey2
-    unions = foldlStrict union_ empty
+    unions = foldlStrict union2 empty
     union = union2
     unionWithKey = unionWithKey2
     unionWith f = unionWithKey2 (\_ -> f)
@@ -322,7 +323,7 @@ instance (Enum a) => KEMM (Key1 a) v where
     foldrWithKey' = foldrWithKey1'
     map = map1
     mapWithKey = mapWithKey1
-    unions = foldlStrict union_ empty
+    unions = foldlStrict union1 empty
     union = union1
     unionWithKey = unionWithKey1
     unionWith f = unionWithKey1 (\_ -> f)
@@ -360,10 +361,10 @@ instance (Enum a) => Functor (EMM a)
     where
       fmap f = mapWithKey_ (\_ -> f)
 
-instance Enum a => Monoid (EMM a v) where
+instance (Enum k) => Monoid (EMM k v) where
     mempty = empty
-    mappend = union_
-    mconcat = foldlStrict union_ empty
+    mappend = union1
+    mconcat = foldlStrict union1 empty
 
 instance Foldable.Foldable (EMM a) where
   fold Nil = mempty
@@ -692,45 +693,37 @@ union4 :: (Enum a, Enum b, Enum c, Enum d) =>
           EnumMapMap (Key4 a b c d) v
        -> EnumMapMap (Key4 a b c d) v
        -> EnumMapMap (Key4 a b c d) v
-union4 = unionWithKey_ (\_ -> union3)
+union4 = mergeWithKey' binD go id id
+    where
+      go = \(Tip k1 x1) (Tip _ x2) ->
+           tip k1 $ union3 x1 x2
+      {-# INLINE go #-}
 
 union3 :: (Enum a, Enum b, Enum c) =>
           EnumMapMap (Key3 a b c) v
        -> EnumMapMap (Key3 a b c) v
        -> EnumMapMap (Key3 a b c) v
-union3 = unionWithKey_ (\_ -> union2)
+union3 = mergeWithKey' binD go id id
+    where
+      go = \(Tip k1 x1) (Tip _ x2) ->
+           tip k1 $ union2 x1 x2
+      {-# INLINE go #-}
 
 union2 :: (Enum a, Enum b) =>
           EnumMapMap (Key2 a b) v
        -> EnumMapMap (Key2 a b) v
        -> EnumMapMap (Key2 a b) v
-union2 = unionWithKey_ (\_ -> union1)
+union2 = mergeWithKey' binD go id id
+    where
+      go = \(Tip k1 x1) (Tip _ x2) ->
+           tip k1 $ union1 x1 x2
+      {-# INLINE go #-}
 
 union1 :: Enum a =>
           EnumMapMap (Key1 a) v
        -> EnumMapMap (Key1 a) v
        -> EnumMapMap (Key1 a) v
-union1 = union_
-
-union_ :: Enum a => EMM a v -> EMM a v -> EMM a v
-union_ t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
-       | shorter m1 m2 = go1
-       | shorter m2 m1 = go2
-       | p1 == p2      = Bin p1 m1 (union_ l1 l2) (union_ r1 r2)
-       | otherwise     = join p1 t1 p2 t2
-       where
-         go1 | nomatch p2 p1 m1 = join p1 t1 p2 t2
-             | zero p2 m1       = Bin p1 m1 (union_ l1 t2) r1
-             | otherwise        = Bin p1 m1 l1 (union_ r1 t2)
-
-         go2 | nomatch p1 p2 m2 = join p1 t1 p2 t2
-             | zero p1 m2       = Bin p2 m2 (union_ t1 l2) r2
-             | otherwise        = Bin p2 m2 l2 (union_ t1 r2)
-
-union_ (Tip k x) t = insert (Key1 $ toEnum k) x t
-union_ t (Tip k x) = insertWith (\_ y -> y) (Key1 $ toEnum k) x t
-union_ Nil t       = t
-union_ t Nil       = t
+union1 = mergeWithKey' Bin const id id
 
 unionWith4 :: (Enum a, Enum b, Enum c, Enum d) =>
               (v -> v -> v)
@@ -765,61 +758,50 @@ unionWithKey4 :: (Enum a, Enum b, Enum c, Enum d) =>
               -> EnumMapMap (Key4 a b c d) v
               -> EnumMapMap (Key4 a b c d) v
               -> EnumMapMap (Key4 a b c d) v
-unionWithKey4 f = unionWithKey_ go
+unionWithKey4 f = mergeWithKey' binD go id id
     where
-      go k1 = unionWithKey3 (\(Key3 k2 k3 k4) -> f $ Key4 (toEnum k1) k2 k3 k4)
+      go = \(Tip k1 x1) (Tip _ x2) ->
+           tip k1 $ unionWithKey3 (\(Key3 k2 k3 k4) ->
+                                       f $ Key4 (toEnum k1) k2 k3 k4) x1 x2
+      {-# INLINE go #-}
 
 unionWithKey3 :: (Enum a, Enum b, Enum c) =>
                  (Key3 a b c -> v -> v -> v)
               -> EnumMapMap (Key3 a b c) v
               -> EnumMapMap (Key3 a b c) v
               -> EnumMapMap (Key3 a b c) v
-unionWithKey3 f = unionWithKey_ go
+unionWithKey3 f = mergeWithKey' binD go id id
     where
-      go k1 = unionWithKey2 (\(Key2 k2 k3) -> f $ Key3 (toEnum k1) k2 k3)
+      go = \(Tip k1 x1) (Tip _ x2) ->
+           tip k1 $ unionWithKey2 (\(Key2 k2 k3) ->
+                                       f $ Key3 (toEnum k1) k2 k3) x1 x2
+      {-# INLINE go #-}
 
 unionWithKey2 :: (Enum a, Enum b) =>
                  (Key2 a b -> v -> v -> v)
               -> EnumMapMap (Key2 a b) v
               -> EnumMapMap (Key2 a b) v
               -> EnumMapMap (Key2 a b) v
-unionWithKey2 f = unionWithKey_ go
+unionWithKey2 f = mergeWithKey' binD go id id
     where
-      go k1 = unionWithKey1 (\(Key1 k2) -> f $ Key2 (toEnum k1) k2)
+      go = \(Tip k1 x1) (Tip _ x2) ->
+           tip k1 $ unionWithKey1 (\(Key1 k2) -> f $ Key2 (toEnum k1) k2) x1 x2
+      {-# INLINE go #-}
 
 unionWithKey1 :: (Enum a) =>
                  (Key1 a -> v -> v -> v)
               -> EnumMapMap (Key1 a) v
               -> EnumMapMap (Key1 a) v
               -> EnumMapMap (Key1 a) v
-unionWithKey1 f = unionWithKey_ (\k1 -> f $ Key1 $ toEnum k1)
-
-unionWithKey_ :: Enum a =>
-                 (Key -> v -> v -> v) -> EMM a v -> EMM a v -> EMM a v
-unionWithKey_ f t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
-    | shorter m1 m2          = go1
-    | shorter m2 m1          = go2
-    | p1 == p2               = Bin p1 m1 (unionWithKey_ f l1 l2) (unionWithKey_ f r1 r2)
-    | otherwise              = join p1 t1 p2 t2
+unionWithKey1 f = mergeWithKey' Bin go id id
     where
-      go1 | nomatch p2 p1 m1 = join p1 t1 p2 t2
-          | zero p2 m1       = Bin p1 m1 (unionWithKey_ f l1 t2) r1
-          | otherwise        = Bin p1 m1 l1 (unionWithKey_ f r1 t2)
-
-      go2 | nomatch p1 p2 m2 = join p1 t1 p2 t2
-          | zero p1 m2       = Bin p2 m2 (unionWithKey_ f t1 l2) r2
-          | otherwise        = Bin p2 m2 l2 (unionWithKey_ f t1 r2)
-
-unionWithKey_ f (Tip k x) t  = insertWithKey_ f k x t
-unionWithKey_ f t (Tip k x)  = insertWithKey_ (\k' x' y' -> f k' y' x') k x t
-unionWithKey_ _ Nil t        = t
-unionWithKey_ _ t Nil        = t
+      go = \(Tip k1 x1) (Tip _ x2) ->
+           Tip k1 $ f (Key1 $ toEnum k1) x1 x2
+      {-# INLINE go #-}
 
 {--------------------------------------------------------------------
   Intersection
 --------------------------------------------------------------------}
-
--- These are based on the containers-0.5 API, not 0.4.2
 
 intersectionWithKey4 :: (Enum a, Enum b, Enum c, Enum d) =>
                         (Key4 a b c d -> v1 -> v2 -> Maybe v3)
@@ -905,6 +887,76 @@ intersectionWithKey_ f t1 (Tip k y)
         Nothing -> Nil
 intersectionWithKey_ _ Nil _ = Nil
 intersectionWithKey_ _ _ Nil = Nil
+
+{--------------------------------------------------------------------
+  mergeWithKey
+--------------------------------------------------------------------}
+
+mergeWithKey1 :: Enum a =>
+                 (Key1 a -> v1 -> v2 -> Maybe v3)
+              -> (EnumMapMap (Key1 a) v1 -> EnumMapMap (Key1 a) v3)
+              -> (EnumMapMap (Key1 a) v2 -> EnumMapMap (Key1 a) v3)
+              -> EnumMapMap (Key1 a) v1
+              -> EnumMapMap (Key1 a) v2
+              -> EnumMapMap (Key1 a) v3
+mergeWithKey1 f g1 g2 = mergeWithKey' bin combine g1 g2
+  where
+    combine = \(Tip k1 x1) (Tip _k2 x2)
+            -> case f (Key1 $ toEnum k1) x1 x2 of Nothing -> Nil
+                                                  Just x -> Tip k1 x
+    {-# INLINE combine #-}
+{-# INLINE mergeWithKey1 #-}
+
+mergeWithKey' :: (Enum a) =>
+                 (Prefix -> Mask -> EMM a v3 -> EMM a v3 -> EMM a v3)
+              -> (EMM a v1 -> EMM a v2 -> EMM a v3)
+              -> (EMM a v1 -> EMM a v3)
+              -> (EMM a v2 -> EMM a v3)
+              -> EMM a v1 -> EMM a v2 -> EMM a v3
+mergeWithKey' bin' f g1 g2 = go
+  where
+    go t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
+      | shorter m1 m2  = merge1
+      | shorter m2 m1  = merge2
+      | p1 == p2       = bin' p1 m1 (go l1 l2) (go r1 r2)
+      | otherwise      = maybe_join p1 (g1 t1) p2 (g2 t2)
+      where
+        merge1 | nomatch p2 p1 m1  = maybe_join p1 (g1 t1) p2 (g2 t2)
+               | zero p2 m1        = bin' p1 m1 (go l1 t2) (g1 r1)
+               | otherwise         = bin' p1 m1 (g1 l1) (go r1 t2)
+        merge2 | nomatch p1 p2 m2  = maybe_join p1 (g1 t1) p2 (g2 t2)
+               | zero p1 m2        = bin' p2 m2 (go t1 l2) (g2 r2)
+               | otherwise         = bin' p2 m2 (g2 l2) (go t1 r2)
+
+    go t1'@(Bin _ _ _ _) t2'@(Tip k2' _) = merge t2' k2' t1'
+      where merge t2 k2 t1@(Bin p1 m1 l1 r1)
+                | nomatch k2 p1 m1 = maybe_join p1 (g1 t1) k2 (g2 t2)
+                | zero k2 m1 = bin' p1 m1 (merge t2 k2 l1) (g1 r1)
+                | otherwise  = bin' p1 m1 (g1 l1) (merge t2 k2 r1)
+            merge t2 k2 t1@(Tip k1 _)
+                | k1 == k2 = f t1 t2
+                | otherwise = maybe_join k1 (g1 t1) k2 (g2 t2)
+            merge t2 _  Nil = g2 t2
+
+    go t1@(Bin _ _ _ _) Nil = g1 t1
+
+    go t1'@(Tip k1' _) t2' = merge t1' k1' t2'
+      where merge t1 k1 t2@(Bin p2 m2 l2 r2)
+                | nomatch k1 p2 m2 = maybe_join k1 (g1 t1) p2 (g2 t2)
+                | zero k1 m2 = bin' p2 m2 (merge t1 k1 l2) (g2 r2)
+                | otherwise  = bin' p2 m2 (g2 l2) (merge t1 k1 r2)
+            merge t1 k1 t2@(Tip k2 _)
+                | k1 == k2 = f t1 t2
+                | otherwise = maybe_join k1 (g1 t1) k2 (g2 t2)
+            merge t1 _  Nil = g1 t1
+
+    go Nil t2 = g2 t2
+
+    maybe_join _ Nil _ t2 = t2
+    maybe_join _ t1 _ Nil = t1
+    maybe_join p1 t1 p2 t2 = join p1 t1 p2 t2
+    {-# INLINE maybe_join #-}
+{-# INLINE mergeWithKey' #-}
 
 {--------------------------------------------------------------------
   Helpers

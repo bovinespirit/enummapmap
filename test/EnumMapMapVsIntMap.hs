@@ -7,8 +7,8 @@
 -- straightforward, more interesting corner cases are to be found in the Unit
 -- Tests.
 
-import           Test.Hspec.QuickCheck (prop)
 import           Test.Hspec.Monadic
+import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck ()
 
 import qualified Data.IntMap as IM
@@ -370,7 +370,6 @@ main = hspecX $ do
                                               (\(EMM.Key4 k _ _ _) -> f k))
 
     describe "intersectionWithKey" $ do
-    -- Compatible with Containers 0.4.2, not 0.5
         let f a b c = (a + b) * c
         prop "Level 1" $
              runPropDuoL (IM.intersectionWithKey f)
@@ -388,3 +387,4 @@ main = hspecX $ do
              runPropDuoL4 (IM.intersectionWithKey f)
                              (EMM.intersectionWithKey4
                                      (\(EMM.Key4 k _ _ _) a b -> Just $ f k a b))
+
