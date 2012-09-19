@@ -70,6 +70,14 @@ module Data.EnumMapMap.Base (
             intersectionWithKey2,
             intersectionWithKey3,
             intersectionWithKey4,
+            intersectionWith1,
+            intersectionWith2,
+            intersectionWith3,
+            intersectionWith4,
+            intersection1,
+            intersection2,
+            intersection3,
+            intersection4,
             mergeWithKey1,
             fromList,
             fromList1,
@@ -804,7 +812,7 @@ unionWithKey1 f = mergeWithKey' Bin go id id
 --------------------------------------------------------------------}
 
 intersectionWithKey4 :: (Enum a, Enum b, Enum c, Enum d) =>
-                        (Key4 a b c d -> v1 -> v2 -> Maybe v3)
+                        (Key4 a b c d -> v1 -> v2 -> v3)
                      -> EnumMapMap (Key4 a b c d) v1
                      -> EnumMapMap (Key4 a b c d) v2
                      -> EnumMapMap (Key4 a b c d) v3
@@ -814,7 +822,7 @@ intersectionWithKey4 f = intersectionWithKey_ go
                                                         k3 k4)
 
 intersectionWithKey3 :: (Enum a, Enum b, Enum c) =>
-                        (Key3 a b c -> v1 -> v2 -> Maybe v3)
+                        (Key3 a b c -> v1 -> v2 -> v3)
                      -> EnumMapMap (Key3 a b c) v1
                      -> EnumMapMap (Key3 a b c) v2
                      -> EnumMapMap (Key3 a b c) v3
@@ -823,7 +831,7 @@ intersectionWithKey3 f = intersectionWithKey_ go
       go k1 = intersectionWithKey2 (\(Key2 k2 k3) -> f $ Key3 (toEnum k1) k2 k3)
 
 intersectionWithKey2 :: (Enum a, Enum b) =>
-                        (Key2 a b -> v1 -> v2 -> Maybe v3)
+                        (Key2 a b -> v1 -> v2 -> v3)
                      -> EnumMapMap (Key2 a b) v1
                      -> EnumMapMap (Key2 a b) v2
                      -> EnumMapMap (Key2 a b) v3
@@ -831,62 +839,74 @@ intersectionWithKey2 f = intersectionWithKey_ go
     where go k1 = intersectionWithKey1 (\(Key1 k2) -> f $ Key2 (toEnum k1) k2)
 
 intersectionWithKey1 :: (Enum a) =>
-                        (Key1 a -> v1 -> v2 -> Maybe v3)
+                        (Key1 a -> v1 -> v2 -> v3)
                      -> EnumMapMap (Key1 a) v1
                      -> EnumMapMap (Key1 a) v2
                      -> EnumMapMap (Key1 a) v3
-intersectionWithKey1 f t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
-    | shorter m1 m2 = inter1
-    | shorter m2 m1 = inter2
-    | p1 == p2      = bin p1 m1 (intersectionWithKey1 f l1 l2) $
-                          intersectionWithKey1 f r1 r2
-    | otherwise     = Nil
-    where
-      inter1 | nomatch p2 p1 m1 = Nil
-             | zero p2 m1       = intersectionWithKey1 f l1 t2
-             | otherwise        = intersectionWithKey1 f r1 t2
-
-      inter2 | nomatch p1 p2 m2 = Nil
-             | zero p1 m2       = intersectionWithKey1 f t1 l2
-             | otherwise        = intersectionWithKey1 f t1 r2
-intersectionWithKey1 f (Tip k x) t2
-  = case lookup_ (Just . id) k t2 >>= (\y -> f (Key1 $ toEnum k) x y) of
-      Just y' -> Tip k y'
-      Nothing -> Nil
-intersectionWithKey1 f t1 (Tip k y)
-  = case lookup_ (Just . id) k t1 >>= (\x -> f (Key1 $ toEnum k) x y) of
-      Just x'  -> Tip k x'
-      Nothing -> Nil
-intersectionWithKey1 _ Nil _ = Nil
-intersectionWithKey1 _ _ Nil = Nil
+intersectionWithKey1 f m1 m2
+    = mergeWithKey' bin go (const Nil) (const Nil) m1 m2
+          where
+            go (Tip k1 x1) (Tip _k2 x2) = Tip k1 (f (Key1 $ toEnum k1) x1 x2)
+            go _ _ = undefined
 
 intersectionWithKey_ :: (Enum a, Enum b) =>
                         (Key -> EMM b v1 -> EMM b v2 -> EMM b v3)
                      -> EMM a (EMM b v1) -> EMM a (EMM b v2) -> EMM a (EMM b v3)
-intersectionWithKey_ f t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
-    | shorter m1 m2 = inter1
-    | shorter m2 m1 = inter2
-    | p1 == p2      = binD p1 m1 (intersectionWithKey_ f l1 l2) $
-                          intersectionWithKey_ f r1 r2
-    | otherwise     = Nil
-    where
-      inter1 | nomatch p2 p1 m1 = Nil
-             | zero p2 m1       = intersectionWithKey_ f l1 t2
-             | otherwise        = intersectionWithKey_ f r1 t2
+intersectionWithKey_ f m1 m2
+    = mergeWithKey' binD (\(Tip k1 x1) (Tip _k2 x2) ->
+                              tip k1 (f k1 x1 x2)) (const Nil) (const Nil) m1 m2
 
-      inter2 | nomatch p1 p2 m2 = Nil
-             | zero p1 m2       = intersectionWithKey_ f t1 l2
-             | otherwise        = intersectionWithKey_ f t1 r2
-intersectionWithKey_ f (Tip k x) t2
-    = case lookup_ (Just . id) k t2 >>= (\y -> return $ f k x y) of
-        Just y'  -> tip k y'
-        Nothing -> Nil
-intersectionWithKey_ f t1 (Tip k y)
-    = case lookup_ (Just . id) k t1 >>= (\x -> return $ f k x y) of
-        Just y'  -> tip k y'
-        Nothing -> Nil
-intersectionWithKey_ _ Nil _ = Nil
-intersectionWithKey_ _ _ Nil = Nil
+intersectionWith1 :: (Enum a) =>
+                     (v1 -> v2 -> v3)
+                  -> EnumMapMap (Key1 a) v1
+                  -> EnumMapMap (Key1 a) v2
+                  -> EnumMapMap (Key1 a) v3
+intersectionWith1 f = intersectionWithKey1 (\_ -> f)
+
+intersectionWith2 :: (Enum a, Enum b) =>
+                     (v1 -> v2 -> v3)
+                  -> EnumMapMap (Key2 a b) v1
+                  -> EnumMapMap (Key2 a b) v2
+                  -> EnumMapMap (Key2 a b) v3
+intersectionWith2 f = intersectionWithKey2 (\_ -> f)
+
+intersectionWith3 :: (Enum a, Enum b, Enum c) =>
+                     (v1 -> v2 -> v3)
+                  -> EnumMapMap (Key3 a b c) v1
+                  -> EnumMapMap (Key3 a b c) v2
+                  -> EnumMapMap (Key3 a b c) v3
+intersectionWith3 f = intersectionWithKey3 (\_ -> f)
+
+intersectionWith4 :: (Enum a, Enum b, Enum c, Enum d) =>
+                     (v1 -> v2 -> v3)
+                  -> EnumMapMap (Key4 a b c d) v1
+                  -> EnumMapMap (Key4 a b c d) v2
+                  -> EnumMapMap (Key4 a b c d) v3
+intersectionWith4 f = intersectionWithKey4 (\_ -> f)
+
+intersection4 :: (Enum a, Enum b, Enum c, Enum d) =>
+                 EnumMapMap (Key4 a b c d) v
+              -> EnumMapMap (Key4 a b c d) v
+              -> EnumMapMap (Key4 a b c d) v
+intersection4 = intersectionWithKey_ (\_ -> intersection3)
+
+intersection3 :: (Enum a, Enum b, Enum c) =>
+                 EnumMapMap (Key3 a b c) v
+              -> EnumMapMap (Key3 a b c) v
+              -> EnumMapMap (Key3 a b c) v
+intersection3 = intersectionWithKey_ (\_ -> intersection2)
+
+intersection2 :: (Enum a, Enum b) =>
+                 EnumMapMap (Key2 a b) v
+              -> EnumMapMap (Key2 a b) v
+              -> EnumMapMap (Key2 a b) v
+intersection2 = intersectionWithKey_ (\_ -> intersection1)
+
+intersection1 :: (Enum a) =>
+                 EnumMapMap (Key1 a) v
+              -> EnumMapMap (Key1 a) v
+              -> EnumMapMap (Key1 a) v
+intersection1 = mergeWithKey' bin const (const Nil) (const Nil)
 
 {--------------------------------------------------------------------
   mergeWithKey

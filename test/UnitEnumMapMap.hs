@@ -21,19 +21,19 @@ odds :: [Int]
 odds = [1, 3..1000]
 
 fewOdds :: [Int]
-fewOdds = [1, 3..6]
+fewOdds = [1, 3..8]
 
 evens :: [Int]
 evens = [2, 4..1000]
 
 fewEvens :: [Int]
-fewEvens = [2, 4..6]
+fewEvens = [2, 4..8]
 
 alls :: [Int]
 alls = [1, 2..1000]
 
 fewAlls :: [Int]
-fewAlls = [1, 2..6]
+fewAlls = [1, 2..8]
 
 l1tens :: EnumMapMap (Key1 Int) Int
 l1tens = EMM.fromList1 $ zip [1..7] tens
@@ -200,6 +200,7 @@ main =
           it "includes every key from each EnumMapMap" $
                (EMM.union1 l1odds l1evens) @?= l1alls
 
+      -- Adapted from containers5.0 IntMap tests
       describe "mergeWithKey" $ do
         let keep False _ = EMM.empty
             keep True  m = m
@@ -251,3 +252,9 @@ main =
                           (_, _) -> undefined
 
           prop "IntMap model" prop_model
+
+      describe "intersection" $ do
+        describe "Level 2" $ do
+          it "Removes empty sub-maps" $
+            let emm = EMM.fromList2 $ zip odds $ repeat $ zip fewEvens fewEvens in
+            EMM.intersection2 l2odds emm @?= EMM.empty

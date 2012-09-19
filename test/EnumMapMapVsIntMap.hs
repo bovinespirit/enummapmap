@@ -374,17 +374,44 @@ main = hspecX $ do
         prop "Level 1" $
              runPropDuoL (IM.intersectionWithKey f)
                              (EMM.intersectionWithKey1
-                                     (\(EMM.Key1 k) a b -> Just $ f k a b))
+                                     (\(EMM.Key1 k) a b -> f k a b))
         prop "Level 2" $
              runPropDuoL2 (IM.intersectionWithKey f)
                              (EMM.intersectionWithKey2
-                                     (\(EMM.Key2 k _) a b -> Just $ f k a b))
+                                     (\(EMM.Key2 k _) a b -> f k a b))
         prop "Level 3" $
              runPropDuoL3 (IM.intersectionWithKey f)
                              (EMM.intersectionWithKey3
-                                     (\(EMM.Key3 k _ _) a b -> Just $ f k a b))
+                                     (\(EMM.Key3 k _ _) a b -> f k a b))
         prop "Level 4" $
              runPropDuoL4 (IM.intersectionWithKey f)
                              (EMM.intersectionWithKey4
-                                     (\(EMM.Key4 k _ _ _) a b -> Just $ f k a b))
+                                     (\(EMM.Key4 k _ _ _) a b -> f k a b))
 
+    describe "intersectionWith" $ do
+        prop "Level 1" $
+             runPropDuoL (IM.intersectionWith (*))
+                             (EMM.intersectionWith1 (*))
+        prop "Level 2" $
+             runPropDuoL2 (IM.intersectionWith (*))
+                             (EMM.intersectionWith2 (*))
+        prop "Level 3" $
+             runPropDuoL3 (IM.intersectionWith (*))
+                             (EMM.intersectionWith3 (*))
+        prop "Level 4" $
+             runPropDuoL4 (IM.intersectionWith (*))
+                             (EMM.intersectionWith4 (*))
+
+    describe "intersection" $ do
+        prop "Level 1" $
+             runPropDuoL (IM.intersection)
+                             (EMM.intersection1)
+        prop "Level 2" $
+             runPropDuoL2 (IM.intersection)
+                             (EMM.intersection2)
+        prop "Level 3" $
+             runPropDuoL3 (IM.intersection)
+                             (EMM.intersection3)
+        prop "Level 4" $
+             runPropDuoL4 (IM.intersection)
+                             (EMM.intersection4)
