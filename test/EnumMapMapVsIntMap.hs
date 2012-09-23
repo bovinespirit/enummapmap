@@ -132,12 +132,7 @@ runPropL :: (IM.IntMap Int -> IM.IntMap Int)
          -> [(Int, Int)]
          -> Bool
 runPropL f g =
-    runProp goi goe
-        where
-          goe :: TestMap -> [(Int, Int)]
-          goe emm = EMM.toList1 $ g emm
-          goi :: IM.IntMap Int -> [(Int, Int)]
-          goi im = IM.toList $ f im
+    runProp (IM.toList . f) (EMM.toList1 . g)
 
 runPropDuoL :: (IM.IntMap Int -> IM.IntMap Int -> IM.IntMap Int)
             -> (TestMap -> TestMap -> TestMap)
