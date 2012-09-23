@@ -66,6 +66,18 @@ module Data.EnumMapMap.Base (
             unionWithKey2,
             unionWithKey3,
             unionWithKey4,
+            difference4,
+            difference3,
+            difference2,
+            difference1,
+            differenceWith4,
+            differenceWith3,
+            differenceWith2,
+            differenceWith1,
+            differenceWithKey4,
+            differenceWithKey3,
+            differenceWithKey2,
+            differenceWithKey1,
             intersectionWithKey1,
             intersectionWithKey2,
             intersectionWithKey3,
@@ -633,21 +645,17 @@ foldrWithKey_' f z = \t ->
 toAscList4 :: (Enum a, Enum b, Enum c, Enum d) =>
               EnumMapMap (Key4 a b c d) v -> List (Key4 a b c d) v
 toAscList4 = toAscList_ toAscList3
-{-# INLINE toAscList4 #-}
 
 toAscList3 :: (Enum a, Enum b, Enum c) =>
               EnumMapMap (Key3 a b c) v -> List (Key3 a b c) v
 toAscList3 = toAscList_ toAscList2
-{-# INLINE toAscList3 #-}
 
 toAscList2 :: (Enum a, Enum b) =>
               EnumMapMap (Key2 a b) v -> List (Key2 a b) v
 toAscList2 = toAscList_ toAscList1
-{-# INLINE toAscList2 #-}
 
 toAscList1 :: Enum a => EnumMapMap (Key1 a) v -> List (Key1 a) v
 toAscList1 = toAscList_ id
-{-# INLINE toAscList1 #-}
 
 toAscList_ :: Enum k => (v -> t) -> EMM k v -> [(k, t)]
 toAscList_ f = foldrWithKey_ (\key x xs -> (key, f x):xs) []
@@ -671,21 +679,17 @@ toList1 = toAscList1
 fromList4 :: (Enum a, Enum b, Enum c, Enum d) =>
              List (Key4 a b c d) v -> EnumMapMap (Key4 a b c d) v
 fromList4 = fromList_ fromList3
-{-# INLINE fromList4 #-}
 
 fromList3 :: (Enum a, Enum b, Enum c) =>
              List (Key3 a b c) v -> EnumMapMap (Key3 a b c) v
 fromList3 = fromList_ fromList2
-{-# INLINE fromList3 #-}
 
 fromList2 :: (Enum a, Enum b) =>
              List (Key2 a b) v -> EnumMapMap (Key2 a b) v
 fromList2 = fromList_ fromList1
-{-# INLINE fromList2 #-}
 
 fromList1 :: Enum a => List (Key1 a) v -> EnumMapMap (Key1 a) v
 fromList1 = fromList_ id
-{-# INLINE fromList1 #-}
 
 fromList_ :: Enum k => (t -> v) -> [(k, t)] -> EMM k v
 fromList_ f = foldlStrict ins empty
@@ -808,6 +812,114 @@ unionWithKey1 f = mergeWithKey' Bin go id id
       {-# INLINE go #-}
 
 {--------------------------------------------------------------------
+  Difference
+--------------------------------------------------------------------}
+
+differenceWithKey4 :: (Enum a, Enum b, Enum c, Enum d) =>
+                      (Key4 a b c d -> v1 -> v2 -> Maybe v1)
+                   -> EnumMapMap (Key4 a b c d) v1
+                   -> EnumMapMap (Key4 a b c d) v2
+                   -> EnumMapMap (Key4 a b c d) v1
+differenceWithKey4 f = differenceWithKey_ go
+    where go k1 = differenceWithKey3 (\(Key3 k2 k3 k4)
+                                          -> f $ Key4 (toEnum k1) k2 k3 k4)
+
+differenceWithKey3 :: (Enum a, Enum b, Enum c) =>
+                      (Key3 a b c -> v1 -> v2 -> Maybe v1)
+                   -> EnumMapMap (Key3 a b c) v1
+                   -> EnumMapMap (Key3 a b c) v2
+                   -> EnumMapMap (Key3 a b c) v1
+differenceWithKey3 f = differenceWithKey_ go
+    where go k1 = differenceWithKey2 (\(Key2 k2 k3) -> f $ Key3 (toEnum k1) k2 k3)
+
+differenceWithKey2 :: (Enum a, Enum b) =>
+                      (Key2 a b -> v1 -> v2 -> Maybe v1)
+                   -> EnumMapMap (Key2 a b) v1
+                   -> EnumMapMap (Key2 a b) v2
+                   -> EnumMapMap (Key2 a b) v1
+differenceWithKey2 f = differenceWithKey_ go
+    where go k1 = differenceWithKey1 (\(Key1 k2) -> f $ Key2 (toEnum k1) k2)
+
+differenceWithKey1 :: (Enum a) =>
+                      (Key1 a -> v1 -> v2 -> Maybe v1)
+                   -> EnumMapMap (Key1 a) v1
+                   -> EnumMapMap (Key1 a) v2
+                   -> EnumMapMap (Key1 a) v1
+differenceWithKey1 f = mergeWithKey' bin combine id (const Nil)
+  where
+    combine = \(Tip k1 x1) (Tip _ x2)
+            -> case f (Key1 $ toEnum k1) x1 x2 of Nothing -> Nil
+                                                  Just x -> Tip k1 x
+    {-# INLINE combine #-}
+
+differenceWithKey_ :: (Enum a, Enum b) =>
+                      (Key -> EMM b v1 -> EMM b v2 -> EMM b v1)
+                   -> EMM a (EMM b v1) -> EMM a (EMM b v2) -> EMM a (EMM b v1)
+differenceWithKey_ f =
+    mergeWithKey' binD (\(Tip k1 x1) (Tip _k2 x2) ->
+                              tip k1 (f k1 x1 x2)) id (const Nil)
+
+differenceWith4 :: (Enum a, Enum b, Enum c, Enum d) =>
+                   (v1 -> v2 -> Maybe v1)
+                -> EnumMapMap (Key4 a b c d) v1
+                -> EnumMapMap (Key4 a b c d) v2
+                -> EnumMapMap (Key4 a b c d) v1
+differenceWith4 f
+    = differenceWithKey4 (\_ -> f)
+
+differenceWith3 :: (Enum a, Enum b, Enum c) =>
+                   (v1 -> v2 -> Maybe v1)
+                -> EnumMapMap (Key3 a b c) v1
+                -> EnumMapMap (Key3 a b c) v2
+                -> EnumMapMap (Key3 a b c) v1
+differenceWith3 f
+    = differenceWithKey3 (\_ -> f)
+
+differenceWith2 :: (Enum a, Enum b) =>
+                   (v1 -> v2 -> Maybe v1)
+                -> EnumMapMap (Key2 a b) v1
+                -> EnumMapMap (Key2 a b) v2
+                -> EnumMapMap (Key2 a b) v1
+differenceWith2 f
+    = differenceWithKey2 (\_ -> f)
+
+differenceWith1 :: (Enum a) =>
+                   (v1 -> v2 -> Maybe v1)
+                -> EnumMapMap (Key1 a) v1
+                -> EnumMapMap (Key1 a) v2
+                -> EnumMapMap (Key1 a) v1
+differenceWith1 f
+    = differenceWithKey1 (\_ -> f)
+
+difference4 :: (Enum a, Enum b, Enum c, Enum d) =>
+               EnumMapMap (Key4 a b c d) v1
+            -> EnumMapMap (Key4 a b c d) v2
+            -> EnumMapMap (Key4 a b c d) v1
+difference4
+    = mergeWithKey' bin (\_ _ -> Nil) id (const Nil)
+
+difference3 :: (Enum a, Enum b, Enum c) =>
+               EnumMapMap (Key3 a b c) v1
+            -> EnumMapMap (Key3 a b c) v2
+            -> EnumMapMap (Key3 a b c) v1
+difference3
+    = mergeWithKey' bin (\_ _ -> Nil) id (const Nil)
+
+difference2 :: (Enum a, Enum b) =>
+               EnumMapMap (Key2 a b) v1
+            -> EnumMapMap (Key2 a b) v2
+            -> EnumMapMap (Key2 a b) v1
+difference2
+    = mergeWithKey' bin (\_ _ -> Nil) id (const Nil)
+
+difference1 :: (Enum a) =>
+               EnumMapMap (Key1 a) v1
+            -> EnumMapMap (Key1 a) v2
+            -> EnumMapMap (Key1 a) v1
+difference1
+    = mergeWithKey' bin (\_ _ -> Nil) id (const Nil)
+
+{--------------------------------------------------------------------
   Intersection
 --------------------------------------------------------------------}
 
@@ -843,18 +955,18 @@ intersectionWithKey1 :: (Enum a) =>
                      -> EnumMapMap (Key1 a) v1
                      -> EnumMapMap (Key1 a) v2
                      -> EnumMapMap (Key1 a) v3
-intersectionWithKey1 f m1 m2
-    = mergeWithKey' bin go (const Nil) (const Nil) m1 m2
+intersectionWithKey1 f
+    = mergeWithKey' bin go (const Nil) (const Nil)
           where
-            go (Tip k1 x1) (Tip _k2 x2) = Tip k1 (f (Key1 $ toEnum k1) x1 x2)
-            go _ _ = undefined
+            go = \(Tip k1 x1) (Tip _k2 x2) ->
+                 Tip k1 (f (Key1 $ toEnum k1) x1 x2)
 
 intersectionWithKey_ :: (Enum a, Enum b) =>
                         (Key -> EMM b v1 -> EMM b v2 -> EMM b v3)
                      -> EMM a (EMM b v1) -> EMM a (EMM b v2) -> EMM a (EMM b v3)
-intersectionWithKey_ f m1 m2
+intersectionWithKey_ f
     = mergeWithKey' binD (\(Tip k1 x1) (Tip _k2 x2) ->
-                              tip k1 (f k1 x1 x2)) (const Nil) (const Nil) m1 m2
+                              tip k1 (f k1 x1 x2)) (const Nil) (const Nil)
 
 intersectionWith1 :: (Enum a) =>
                      (v1 -> v2 -> v3)

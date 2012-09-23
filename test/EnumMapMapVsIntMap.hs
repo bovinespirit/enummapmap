@@ -4,8 +4,7 @@
 -- | This uses QuickCheck to try to check that an 'EnumMapMap'
 -- behaves in the same way as an 'IntMap'.  It checks each level of the
 -- 'EnumMapMap' one by one for each function.  The tests are actually fairly
--- straightforward, more interesting corner cases are to be found in the Unit
--- Tests.
+-- straightforward, as it only checks one level at a time.
 
 import           Test.Hspec.Monadic
 import           Test.Hspec.QuickCheck (prop)
@@ -45,6 +44,8 @@ runProp :: Eq t =>
 runProp f g list =
     (f $ IM.fromList list) == (g $ EMM.fromList1 list)
 
+-- | Run functions on 2 'IntMap's and 2 'EnumMapMap's created from lists and check
+-- that the results are equal
 runPropDuo :: Eq t =>
            (IM.IntMap Int -> IM.IntMap Int -> t)
         -> (TestMap -> TestMap -> t)
@@ -131,7 +132,12 @@ runPropL :: (IM.IntMap Int -> IM.IntMap Int)
          -> [(Int, Int)]
          -> Bool
 runPropL f g =
-    runProp (IM.toList . f) (EMM.toList1 . g)
+    runProp goi goe
+        where
+          goe :: TestMap -> [(Int, Int)]
+          goe emm = EMM.toList1 $ g emm
+          goi :: IM.IntMap Int -> [(Int, Int)]
+          goi im = IM.toList $ f im
 
 runPropDuoL :: (IM.IntMap Int -> IM.IntMap Int -> IM.IntMap Int)
             -> (TestMap -> TestMap -> TestMap)
@@ -294,19 +300,20 @@ main = hspecX $ do
                            (EMM.delete (EMM.Key4 i k1 k2 k3)) k1 k2 k3
 
     describe "foldrWithKey" $ do
-        let f a b c = [a + b] ++ c
+        let f :: Int -> Int -> [Int] -> [Int]
+            f a b c = [a + b] ++ c
         prop "Level 1" $
              runProp (IM.foldrWithKey f []) (EMM.foldrWithKey
-                         (\(EMM.Key1 k) -> f k) [])
+                         (\(EMM.Key1 k) -> f $ toEnum k) [])
         prop "Level 2" $
              runProp2 (IM.foldrWithKey f []) (EMM.foldrWithKey
-                         (\(EMM.Key2 k _) -> f k) [])
+                         (\(EMM.Key2 k _) -> f $ toEnum k) [])
         prop "Level 3" $
              runProp3 (IM.foldrWithKey f []) (EMM.foldrWithKey
-                         (\(EMM.Key3 k _ _) -> f k) [])
+                         (\(EMM.Key3 k _ _) -> f $ toEnum k) [])
         prop "Level 3" $
              runProp4 (IM.foldrWithKey f []) (EMM.foldrWithKey
-                         (\(EMM.Key4 k _ _ _) -> f k) [])
+                         (\(EMM.Key4 k _ _ _) -> f $ toEnum k) [])
 
     describe "map" $ do
         let f a = a + 1
@@ -320,19 +327,20 @@ main = hspecX $ do
              runPropL4 (IM.map f) (EMM.map4 f)
 
     describe "mapWithKey" $ do
-        let f k a = k + a
+        let f :: Int -> Int -> Int
+            f k a = k + a
         prop "Level 1" $
              runPropL  (IM.mapWithKey f) (EMM.mapWithKey
-                                          (\(EMM.Key1 k) -> f k))
+                                          (\(EMM.Key1 k) -> f $ toEnum k))
         prop "Level 2" $
              runPropL2 (IM.mapWithKey f) (EMM.mapWithKey
-                                          (\(EMM.Key2 k _) -> f k))
+                                          (\(EMM.Key2 k _) -> f $ toEnum k))
         prop "Level 3" $
              runPropL3 (IM.mapWithKey f) (EMM.mapWithKey
-                                          (\(EMM.Key3 k _ _) -> f k))
+                                          (\(EMM.Key3 k _ _) -> f $ toEnum k))
         prop "Level 4" $
              runPropL4 (IM.mapWithKey f) (EMM.mapWithKey
-                                          (\(EMM.Key4 k _ _ _) -> f k))
+                                          (\(EMM.Key4 k _ _ _) -> f $ toEnum k))
 
     describe "union" $ do
         prop "Level 1" $
@@ -355,38 +363,44 @@ main = hspecX $ do
              runPropDuoL4 (IM.unionWith (+)) (EMM.unionWith4 (+))
 
     describe "unionWithKey" $ do
-        let f a b c = (a + b) * c
+        let f :: Int -> Int -> Int -> Int
+            f a b c = (a + b) * c
         prop "Level 1" $
-             runPropDuoL (IM.unionWithKey f) (EMM.unionWithKey
-                                              (\(EMM.Key1 k) -> f k))
+             runPropDuoL (IM.unionWithKey f)
+                              (EMM.unionWithKey
+                                      (\(EMM.Key1 k) -> f $ toEnum k))
         prop "Level 2" $
-             runPropDuoL2 (IM.unionWithKey f) (EMM.unionWithKey
-                                              (\(EMM.Key2 k _) -> f k))
+             runPropDuoL2 (IM.unionWithKey f)
+                              (EMM.unionWithKey
+                                      (\(EMM.Key2 k _) -> f $ toEnum k))
         prop "Level 3" $
-             runPropDuoL3 (IM.unionWithKey f) (EMM.unionWithKey
-                                              (\(EMM.Key3 k _ _) -> f k))
+             runPropDuoL3 (IM.unionWithKey f)
+                              (EMM.unionWithKey
+                                      (\(EMM.Key3 k _ _) -> f $ toEnum k))
         prop "Level 4" $
-             runPropDuoL4 (IM.unionWithKey f) (EMM.unionWithKey
-                                              (\(EMM.Key4 k _ _ _) -> f k))
+             runPropDuoL4 (IM.unionWithKey f)
+                              (EMM.unionWithKey
+                                      (\(EMM.Key4 k _ _ _) -> f $ toEnum k))
 
     describe "intersectionWithKey" $ do
-        let f a b c = (a + b) * c
+        let f :: Int -> Int -> Int -> Int
+            f a b c = (a + b) * c
         prop "Level 1" $
              runPropDuoL (IM.intersectionWithKey f)
                              (EMM.intersectionWithKey1
-                                     (\(EMM.Key1 k) a b -> f k a b))
+                                     (\(EMM.Key1 k) -> f $ toEnum k))
         prop "Level 2" $
              runPropDuoL2 (IM.intersectionWithKey f)
                              (EMM.intersectionWithKey2
-                                     (\(EMM.Key2 k _) a b -> f k a b))
+                                     (\(EMM.Key2 k _) -> f $ toEnum k))
         prop "Level 3" $
              runPropDuoL3 (IM.intersectionWithKey f)
                              (EMM.intersectionWithKey3
-                                     (\(EMM.Key3 k _ _) a b -> f k a b))
+                                     (\(EMM.Key3 k _ _) -> f $ toEnum k))
         prop "Level 4" $
              runPropDuoL4 (IM.intersectionWithKey f)
                              (EMM.intersectionWithKey4
-                                     (\(EMM.Key4 k _ _ _) a b -> f k a b))
+                                     (\(EMM.Key4 k _ _ _) -> f $ toEnum k))
 
     describe "intersectionWith" $ do
         prop "Level 1" $
@@ -415,3 +429,49 @@ main = hspecX $ do
         prop "Level 4" $
              runPropDuoL4 (IM.intersection)
                              (EMM.intersection4)
+
+    describe "differenceWithKey" $ do
+        let f :: Int -> Int -> Int -> Maybe Int
+            f a b c = Just $ (a + b) * c
+        prop "Level 1" $
+             runPropDuoL (IM.differenceWithKey f)
+                             (EMM.differenceWithKey1
+                                     (\(EMM.Key1 k) -> f $ toEnum k))
+        prop "Level 2" $
+             runPropDuoL2 (IM.differenceWithKey f)
+                             (EMM.differenceWithKey2
+                                     (\(EMM.Key2 k _) -> f $ toEnum k))
+        prop "Level 3" $
+             runPropDuoL3 (IM.differenceWithKey f)
+                             (EMM.differenceWithKey3
+                                     (\(EMM.Key3 k _ _) -> f $ toEnum k))
+        prop "Level 4" $
+             runPropDuoL4 (IM.differenceWithKey f)
+                             (EMM.differenceWithKey4
+                                     (\(EMM.Key4 k _ _ _) -> f $ toEnum k))
+
+    describe "differenceWith" $ do
+        let f a b = Just $ a * b
+        prop "Level 1" $
+             runPropDuoL (IM.differenceWith f)
+                             (EMM.differenceWith1 f)
+        prop "Level 2" $
+             runPropDuoL2 (IM.differenceWith f)
+                             (EMM.differenceWith2 f)
+        prop "Level 3" $
+             runPropDuoL3 (IM.differenceWith f)
+                             (EMM.differenceWith3 f)
+        prop "Level 4" $
+             runPropDuoL4 (IM.differenceWith f)
+                             (EMM.differenceWith4 f)
+
+    describe "difference" $ do
+        prop "Level 1" $
+             runPropDuoL IM.difference EMM.difference1
+        prop "Level 2" $
+             runPropDuoL2 IM.difference EMM.difference2
+        prop "Level 3" $
+             runPropDuoL3 IM.difference EMM.difference3
+        prop "Level 4" $
+             runPropDuoL4 IM.difference EMM.difference4
+
