@@ -1,17 +1,13 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-import           Data.Function
-import qualified Data.List as List
-import qualified Data.Maybe as Maybe
 import           Test.Hspec.HUnit ()
 import           Test.Hspec.Monadic
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec.QuickCheck ()
 import           Test.HUnit
 import           Test.QuickCheck ()
 
-import           Data.EnumMapMap.Base (EnumMapMap,
-                                       Key1(..), Key2(..), Key3(..), Key4(..))
+import           Data.EnumMapMap.Base (EnumMapMap, K(..), (:&)(..))
 import qualified Data.EnumMapMap.Base as EMM
 
 tens :: [Int]
@@ -26,228 +22,146 @@ fewOdds = [1, 3..6]
 evens :: [Int]
 evens = [2, 4..1000]
 
-fewEvens :: [Int]
-fewEvens = [2, 4..6]
-
 alls :: [Int]
 alls = [1, 2..1000]
 
-fewAlls :: [Int]
-fewAlls = [1, 2..6]
+l1tens :: EnumMapMap (K Int) Int
+l1tens = EMM.fromList $ map (\(k, v) -> (K k, v)) $ zip [1..7] tens
+l2tens :: EnumMapMap (Int :& K Int) Int
+l2tens = EMM.fromList $ zip (do
+                              k1 <- [1, 2]
+                              k2 <- [1..7]
+                              return $ k1 :& K k2) $ cycle tens
 
-l1tens :: EnumMapMap (Key1 Int) Int
-l1tens = EMM.fromList1 $ zip [1..7] tens
-l2tens :: EnumMapMap (Key2 Int Int) Int
-l2tens = EMM.fromList2 $ zip [1..2] $ repeat $ zip [1..7] tens
-l3tens :: EnumMapMap (Key3 Int Int Int) Int
-l3tens = EMM.fromList3 $ zip [1..2] $ repeat $ zip [1..2] $
-         repeat $ zip [1..7] tens
-l4tens :: EnumMapMap (Key4 Int Int Int Int) Int
-l4tens = EMM.fromList4 $ zip [1..2] $ repeat $ zip [1..2] $ repeat $
-         zip [1..2] $ repeat $ zip [1..7] tens
-l1odds :: EnumMapMap (Key1 Int) Int
-l1odds = EMM.fromList1 $ zip odds odds
-l2odds :: EnumMapMap (Key2 Int Int) Int
-l2odds = EMM.fromList2 $ zip odds $ repeat $ zip fewOdds fewOdds
-l3odds :: EnumMapMap (Key3 Int Int Int) Int
-l3odds = EMM.fromList3 $ zip odds $ repeat $ zip fewOdds $ repeat $ zip fewOdds fewOdds
-l4odds :: EnumMapMap (Key4 Int Int Int Int) Int
-l4odds = EMM.fromList4 $ zip odds $ repeat $
-                      zip fewOdds $ repeat $ zip fewOdds $ repeat $ zip fewOdds fewOdds
-l1evens :: EnumMapMap (Key1 Int) Int
-l1evens = EMM.fromList1 $ zip evens evens
+l1odds :: EnumMapMap (K Int) Int
+l1odds = EMM.fromList $ map (\(k, v) -> (K k, v)) $ zip odds odds
+l2odds :: EnumMapMap (Int :& K Int) Int
+l2odds = EMM.fromList $ zip (do
+                              k1 <- fewOdds
+                              k2 <- fewOdds
+                              return $ k1 :& K k2) $ cycle odds
+l1evens :: EnumMapMap (K Int) Int
+l1evens = EMM.fromList $ map (\(k, v) -> (K k, v)) $ zip evens evens
 
-l1alls :: EnumMapMap (Key1 Int) Int
-l1alls = EMM.fromList1 $ zip alls alls
+l1alls :: EnumMapMap (K Int) Int
+l1alls = EMM.fromList $ zip (map K alls) alls
 
 main :: IO ()
 main =
   hspecX $ do
     describe "empty" $ do
       it "creates an empty EnumMapMap" $
-           (EMM.null $ EMM.empty)
+           (EMM.null $ (EMM.empty :: EnumMapMap (Int :& Int :& K Int) Bool))
       it "has a size of 0" $
-           0 @=? (EMM.size $ EMM.empty)
+           0 @=? (EMM.size $ (EMM.empty :: EnumMapMap (Int :& K Int) Bool))
 
     describe "fromList" $ do
       it "is the inverse of toList on 1 level" $
-           (EMM.fromList1 $ EMM.toList1 l1odds) @?= l1odds
+           (EMM.fromList $ EMM.toList l1odds) @?= l1odds
       it "is the inverse of toList on 2 levels" $
-           (EMM.fromList2 $ EMM.toList2 l2odds) @?= l2odds
-      it "is the inverse of toList on 3 levels" $
-           (EMM.fromList3 $ EMM.toList3 l3odds) @?= l3odds
-      it "is the inverse of toList on 4 levels" $
-           (EMM.fromList4 $ EMM.toList4 l4odds) @?= l4odds
+           (EMM.fromList $ EMM.toList l2odds) @?= l2odds
 
     describe "insert" $ do
       describe "Level 1" $ do
         it "creates a value in an empty EMM" $
-           EMM.insert (Key1 1) 1 EMM.empty @?=
-           (EMM.fromList1 [(1, 1)]
-                           :: EnumMapMap (Key1 Int) Int)
+           EMM.insert (K 1) 1 EMM.empty @?=
+           (EMM.fromList [(K 1, 1)]
+                           :: EnumMapMap (K Int) Int)
         it "adds another value to an EMM" $
            let
-               emm :: EnumMapMap (Key1 Int) Int
-               emm = EMM.fromList1 [(2, 2)] in
-           EMM.insert (Key1 1) 1 emm @?=
-              EMM.fromList1 [(1, 1), (2, 2)]
+               emm :: EnumMapMap (K Int) Int
+               emm = EMM.fromList [(K 2, 2)] in
+           EMM.insert (K 1) 1 emm @?=
+              EMM.fromList [(K 1, 1), (K 2, 2)]
         it "overwrites a value with the same key in an EMM" $
-           let emm :: EnumMapMap (Key1 Int) Int
-               emm = EMM.fromList1 [(1, 1), (2, 2)] in
-           EMM.insert (Key1 1) 3 emm @?=
-              EMM.fromList1 [(1, 3), (2, 2)]
+           let emm :: EnumMapMap (K Int) Int
+               emm = EMM.fromList [(K 1, 1), (K 2, 2)] in
+           EMM.insert (K 1) 3 emm @?=
+              EMM.fromList [(K 1, 3), (K 2, 2)]
 
         describe "Level 2" $ do
           it "creates a value in an empty EMM" $
-             EMM.insert (Key2 1 1) 1 EMM.empty @?=
-                             (EMM.fromList2 [(1, [(1, 1)])]
-                                  :: EnumMapMap (Key2 Int Int) Int)
+             EMM.insert (1 :& K 1) 1 EMM.empty @?=
+                             (EMM.fromList [(1 :& K 1, 1)]
+                                  :: EnumMapMap (Int :& K Int) Int)
           it "adds another value to an EMM on level 1" $
              let
-                 emm :: EnumMapMap (Key2 Int Int) Int
-                 emm = EMM.fromList2 [(1, [(2, 2)])]
+                 emm :: EnumMapMap (Int :& K Int) Int
+                 emm = EMM.fromList [(1 :& K 2, 2)]
              in
-               EMM.insert (Key2 1 1) 1 emm @?=
-               EMM.fromList2 [(1, [(1, 1), (2, 2)])]
+               EMM.insert (1 :& K 1) 1 emm @?=
+               EMM.fromList [(1 :& K 1, 1), (1 :& K 2, 2)]
           it "adds another value to an EMM on level 2" $
              let
-                 emm :: EnumMapMap (Key2 Int Int) Int
-                 emm = EMM.fromList2 [(1, [(1, 1)])]
+                 emm :: EnumMapMap (Int :& K Int) Int
+                 emm = EMM.fromList [(1 :& K 1, 1)]
              in
-               EMM.insert (Key2 2 2) 2 emm @?=
-               EMM.fromList2 [(1, [(1, 1)]), (2, [(2, 2)])]
+               EMM.insert (2 :& K 2) 2 emm @?=
+               EMM.fromList [(1 :& K 1, 1), (2 :& K 2, 2)]
 
     describe "insertWithKey" $ do
       let undef = undefined -- fail if this is called
       describe "Level 1" $ do
         it "creates a value in an empty EMM" $
-           EMM.insertWithKey undef (Key1 1) 1 EMM.empty @?=
-                  (EMM.fromList1 [(1, 1)]
-                       :: EnumMapMap (Key1 Int) Int)
+           EMM.insertWithKey undef (K 1) 1 EMM.empty @?=
+                  (EMM.fromList [(K 1, 1)]
+                       :: EnumMapMap (K Int) Int)
         it "adds another value to an EMM" $
            let
-               emm :: EnumMapMap (Key1 Int) Int
-               emm = EMM.fromList1 [(2, 2)] in
-           EMM.insertWithKey undef (Key1 1) 1 emm @?=
-              EMM.fromList1 [(1, 1), (2, 2)]
+               emm :: EnumMapMap (K Int) Int
+               emm = EMM.fromList [(K 2, 2)] in
+           EMM.insertWithKey undef (K 1) 1 emm @?=
+              EMM.fromList [(K 1, 1), (K 2, 2)]
         it "applies the function when overwriting" $
-           let emm :: EnumMapMap (Key1 Int) Int
-               emm = EMM.fromList1 [(1, 1), (2, 4)]
-               f (Key1 k1) o n = k1 * (o + n)
+           let emm :: EnumMapMap (K Int) Int
+               emm = EMM.fromList [(K 1, 1), (K 2, 4)]
+               f (K key1) o n = key1 * (o + n)
            in
-             EMM.insertWithKey f (Key1 2) 3 emm @?=
-                EMM.fromList1 [(1, 1), (2, 14)]
+             EMM.insertWithKey f (K 2) 3 emm @?=
+                EMM.fromList [(K 1, 1), (K 2, 14)]
 
       describe "Level 2" $ do
         it "creates a value in an empty EMM" $
-           EMM.insertWithKey undef (Key2 1 1) 1 EMM.empty @?=
-                  (EMM.fromList2 [(1, [(1, 1)])]
-                           :: EnumMapMap (Key2 Int Int) Int)
+           EMM.insertWithKey undef (1 :& K 1) 1 EMM.empty @?=
+                  (EMM.fromList [(1 :& K 1, 1)]
+                           :: EnumMapMap (Int :& K Int) Int)
         it "adds another value to an EMM on level 1" $
            let
-               emm :: EnumMapMap (Key2 Int Int) Int
-               emm = EMM.fromList2 [(1, [(2, 2)])]
+               emm :: EnumMapMap (Int :& K Int) Int
+               emm = EMM.fromList [(1 :& K 2, 2)]
            in
-             EMM.insertWithKey undef (Key2 1 1) 1 emm @?=
-                EMM.fromList2 [(1, [(1, 1), (2, 2)])]
+             EMM.insertWithKey undef (1 :& K 1) 1 emm @?=
+                EMM.fromList [(1 :& K 1, 1), (1 :& K 2, 2)]
         it "adds another value to an EMM on level 2" $
            let
-               emm :: EnumMapMap (Key2 Int Int) Int
-               emm = EMM.fromList2 [(1, [(1, 1)])]
+               emm :: EnumMapMap (Int :& K Int) Int
+               emm = EMM.fromList [(1 :& K 1, 1)]
            in
-             EMM.insertWithKey undef (Key2 2 2) 2 emm @?=
-                EMM.fromList2 [(1, [(1, 1)]), (2, [(2, 2)])]
+             EMM.insertWithKey undef (2 :& K 2) 2 emm @?=
+                EMM.fromList [(1 :& K 1, 1), (2 :& K 2, 2)]
         it "applies the function when overwriting" $
-           let emm :: EnumMapMap (Key2 Int Int) Int
-               emm = EMM.fromList2 [(2, [(3, 1), (4, 5)])]
-               f (Key2 k1 k2) o n = (k1 + k2) * (o + n)
+           let emm :: EnumMapMap (Int :& K Int) Int
+               emm = EMM.fromList [(2 :& K 3, 1), (2 :& K 4, 5)]
+               f (k1 :& K k2) o n = (k1 + k2) * (o + n)
            in
-             EMM.insertWithKey f (Key2 2 4) 3 emm @?=
-                EMM.fromList2 [(2, [(3, 1), (4, 48)])]
+             EMM.insertWithKey f (2 :& K 4) 3 emm @?=
+                EMM.fromList [(2 :& K 3, 1), (2 :& K 4, 48)]
 
 
     describe "foldrWithKey" $ do
       describe "Level 1" $ do
         it "folds across all values in an EnumMapMap" $
-           EMM.foldrWithKey1 (\_ -> (+)) 0 l1tens @?= 1111111
+           EMM.foldrWithKey (\_ -> (+)) 0 l1tens @?= 1111111
         it "folds across all keys in an EnumMapMap" $
-           EMM.foldrWithKey (\(Key1 k1) _ -> (+) k1) 0 l1tens @?= 28
-        it "folds across all keys in one level of an EnumMapMap" $
-           EMM.foldrWithKey (\(Key1 k1) _ -> (+) k1) 0 l4tens @?= 3
+           EMM.foldrWithKey (\(K k1) _ -> (+) k1) 0 l1tens @?= 28
       describe "Level 2" $ do
         it "folds across all values in an EnumMapMap" $
-           EMM.foldrWithKey2 (\_ -> (+)) 0 l2tens @?= 2222222
+           EMM.foldrWithKey (\_ -> (+)) 0 l2tens @?= 2222222
         it "folds across all keys in an EnumMapMap" $
            EMM.foldrWithKey
-                      (\(Key2 k1 k2) _ -> (+) (k1 * k2)) 0 l2tens @?= 84
-      describe "Level 3" $ do
-        it "folds across all values in an EnumMapMap" $
-               EMM.foldrWithKey3 (\_ -> (+)) 0 l3tens @?= 4444444
-        it "folds across all keys in an EnumMapMap" $
-               EMM.foldrWithKey
-                      (\(Key3 k1 k2 k3) _ -> (+) (k1 * k2 * k3)) 0 l3tens @?=
-                      252
-      describe "Level 4" $ do
-        it "folds across all values in an EnumMapMap" $
-               EMM.foldrWithKey4 (\_ -> (+)) 0 l4tens @?= 8888888
-        it "folds across all keys in an EnumMapMap" $
-               EMM.foldrWithKey
-                      (\(Key4 k1 k2 k3 k4) _ -> (+) (k1 * k2 * k3 * k4)) 0 l4tens
-                      @?= 756
+                      (\(k1 :& K k2) _ -> (+) (k1 * k2)) 0 l2tens @?= 84
 
       describe "union" $ do
         describe "Level 1" $ do
           it "includes every key from each EnumMapMap" $
-               (EMM.union1 l1odds l1evens) @?= l1alls
-
-      describe "mergeWithKey" $ do
-        let keep False _ = EMM.empty
-            keep True  m = m
-        describe "Level 1" $ do
-          let prop_model :: [(Int, Int)] -> [(Int, Int)] -> Bool
-              prop_model xs ys =
-                  and [ testMergeWithKey f keep_x keep_y
-                            | f <- [ \_k x1  _x2 -> Just x1
-                                   , \_k _x1 x2  -> Just x2
-                                   , \_k _x1 _x2 -> Nothing
-                                   , \k  x1  x2  -> if k `mod` 2 == 0 then
-                                                         Nothing
-                                                     else
-                                                         Just (2 * x1 + 3 * x2)
-                           ]
-                      , keep_x <- [ True, False ]
-                      , keep_y <- [ True, False ]
-                      ]
-                  where
-                    xs' = List.nubBy ((==) `on` fst) xs
-                    ys' = List.nubBy ((==) `on` fst) ys
-
-                    xm = EMM.fromList1 xs'
-                    ym = EMM.fromList1 ys'
-
-                    testMergeWithKey f keep_x keep_y
-                        = EMM.toList1 (EMM.mergeWithKey1 (\(Key1 k) -> f k)
-                                              (keep keep_x)
-                                              (keep keep_y) xm ym) ==
-                          emulateMergeWithKey f keep_x keep_y
-                    {-# NOINLINE testMergeWithKey #-}
-
-                    emulateMergeWithKey f keep_x keep_y
-                        = Maybe.mapMaybe (combine f keep_x keep_y)
-                          (List.sort $
-                               List.union (List.map fst xs') (List.map fst ys'))
-
-                    combine f keep_x keep_y k =
-                        case (List.lookup k xs', List.lookup k ys') of
-                          (Nothing, Just y) -> if keep_y then
-                                                    Just (k, y)
-                                                else
-                                                    Nothing
-                          (Just x, Nothing) -> if keep_x then
-                                                    Just (k, x)
-                                                else
-                                                    Nothing
-                          (Just x, Just y) -> (\v -> (k, v)) `fmap` f k x y
-                          (_, _) -> undefined
-
-          prop "IntMap model" prop_model
+               (EMM.union l1odds l1evens) @?= l1alls

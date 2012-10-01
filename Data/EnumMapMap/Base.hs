@@ -1,5 +1,5 @@
-{-# LANGUAGE MagicHash, TypeFamilies, MultiParamTypeClasses,
-             BangPatterns, FlexibleInstances #-}
+{-# LANGUAGE MagicHash, TypeFamilies, MultiParamTypeClasses, StandaloneDeriving,
+             BangPatterns, FlexibleInstances, TypeOperators,  FlexibleContexts #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -19,7 +19,7 @@
 module Data.EnumMapMap.Base (
             -- * Map type
             K1, K2, K3, K4,
-            k1, k2, k3, k4,
+            (:&)(..), K(..),
             EnumMapMap,
             -- * Query
             size,
@@ -31,6 +31,7 @@ module Data.EnumMapMap.Base (
             singleton,
             -- * Insertion
             insert,
+            insertWith,
             insertWithKey,
             -- * Delete\/Update
             delete,
@@ -77,24 +78,16 @@ type Prefix = Int
 type Mask   = Int
 
 -- | Keys are made up of a list of 'Enums'.
-data KeyCons k t = KeyCons !k !t
+infixr 3 :&
+data k :& t = !k :& !t
                    deriving (Show, Eq)
-data KeyEnd k = KeyEnd !k
+data K k = K !k
                    deriving (Show, Eq)
 
-type K1 a       = KeyEnd a
-type K2 a b     = KeyCons a (K1 b)
-type K3 a b c   = KeyCons a (K2 b c)
-type K4 a b c d = KeyCons a (K3 b c d)
-
-k1 :: a -> K1 a
-k1 a       = KeyEnd a
-k2 :: a -> b -> K2 a b
-k2 a b     = KeyCons a $ k1 b
-k3 :: a -> b -> c -> K3 a b c
-k3 a b c   = KeyCons a $ k2 b c
-k4 :: a -> b -> c -> d -> K4 a b c d
-k4 a b c d = KeyCons a $ k3 b c d
+type K1 a       = K a
+type K2 a b     = a :& (K1 b)
+type K3 a b c   = a :& (K2 b c)
+type K4 a b c d = a :& (K3 b c d)
 
 class IsEmm k where
     data EnumMapMap k :: * -> *
@@ -106,6 +99,9 @@ class IsEmm k where
     singleton :: k -> v -> EnumMapMap k v
     lookup :: k -> EnumMapMap k v -> Maybe v
     insert :: k -> v -> EnumMapMap k v -> EnumMapMap k v
+    insertWith :: (v -> v -> v)
+                  -> k -> v -> EnumMapMap k v -> EnumMapMap k v
+    insertWith f = insertWithKey (\_ -> f)
     insertWithKey :: (k -> v -> v -> v)
                   -> k -> v -> EnumMapMap k v -> EnumMapMap k v
     delete :: k -> EnumMapMap k v -> EnumMapMap k v
@@ -151,8 +147,8 @@ class IsEmm k where
     equal ::  Eq v => EnumMapMap k v -> EnumMapMap k v -> Bool
     nequal :: Eq v => EnumMapMap k v -> EnumMapMap k v -> Bool
 
-instance (Enum k) => IsEmm (KeyEnd k) where
-    data EnumMapMap (KeyEnd k) v = KEC (EMM k v)
+instance (Enum k) => IsEmm (K k) where
+    data EnumMapMap (K k) v = KEC (EMM k v)
 
     empty = KEC Nil
 
@@ -166,7 +162,7 @@ instance (Enum k) => IsEmm (KeyEnd k) where
           go (Tip _ _)     = 1
           go Nil           = 0
 
-    member !(KeyEnd key') (KEC emm) = go emm
+    member !(K key') (KEC emm) = go emm
         where
           go t = case t of
                    Bin _ m l r -> case zero key m of
@@ -176,9 +172,9 @@ instance (Enum k) => IsEmm (KeyEnd k) where
                    Nil         -> False
           key = fromEnum key'
 
-    singleton !(KeyEnd key) = KEC . Tip (fromEnum key)
+    singleton !(K key) = KEC . Tip (fromEnum key)
 
-    lookup !(KeyEnd key') (KEC emm) = go emm
+    lookup !(K key') (KEC emm) = go emm
         where
           go (Bin _ m l r)
               | zero key m = go l
@@ -190,7 +186,7 @@ instance (Enum k) => IsEmm (KeyEnd k) where
           go Nil = Nothing
           key = fromEnum key'
 
-    insert !(KeyEnd key') val (KEC emm) = KEC $ go emm
+    insert !(K key') val (KEC emm) = KEC $ go emm
         where
           go t = case t of
                    Bin p m l r
@@ -203,7 +199,7 @@ instance (Enum k) => IsEmm (KeyEnd k) where
                    Nil                   -> Tip key val
           key = fromEnum key'
 
-    insertWithKey f k@(KeyEnd key') val (KEC emm) = KEC $ go emm
+    insertWithKey f k@(K key') val (KEC emm) = KEC $ go emm
         where go t = case t of
                      Bin p m l r
                          | nomatch key p m -> join key (Tip key val) p t
@@ -215,7 +211,7 @@ instance (Enum k) => IsEmm (KeyEnd k) where
                      Nil                   -> Tip key val
               key = fromEnum key'
 
-    delete !(KeyEnd key') (KEC emm) = KEC $ go emm
+    delete !(K key') (KEC emm) = KEC $ go emm
         where
           go t = case t of
                    Bin p m l r | nomatch key p m -> t
@@ -226,15 +222,15 @@ instance (Enum k) => IsEmm (KeyEnd k) where
                    Nil                           -> Nil
           key = fromEnum key'
 
-    mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> f $ KeyEnd k) emm
-    foldrWithKey f init (KEC emm) = foldrWithKey_ (\k -> f $ KeyEnd k) init emm
+    mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> f $ K k) emm
+    foldrWithKey f init (KEC emm) = foldrWithKey_ (\k -> f $ K k) init emm
 
     union (KEC emm1) (KEC emm2) = KEC $ mergeWithKey' Bin const id id emm1 emm2
     unionWithKey f (KEC emm1) (KEC emm2) =
         KEC $ mergeWithKey' Bin go id id emm1 emm2
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
-                   Tip k1 $ f (KeyEnd $ toEnum k1) x1 x2
+                   Tip k1 $ f (K $ toEnum k1) x1 x2
 
     difference (KEC emm1) (KEC emm2) =
         KEC $ mergeWithKey' bin (\_ _ -> Nil) id (const Nil) emm1 emm2
@@ -242,7 +238,7 @@ instance (Enum k) => IsEmm (KeyEnd k) where
         KEC $ mergeWithKey' bin combine id (const Nil) emm1 emm2
             where
               combine = \(Tip k1 x1) (Tip _ x2)
-                      -> case f (KeyEnd $ toEnum k1) x1 x2 of
+                      -> case f (K $ toEnum k1) x1 x2 of
                            Nothing -> Nil
                            Just x -> Tip k1 x
 
@@ -252,13 +248,13 @@ instance (Enum k) => IsEmm (KeyEnd k) where
         KEC $ mergeWithKey' bin go (const Nil) (const Nil) emm1 emm2
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
-                   Tip k1 $ f (KeyEnd $ toEnum k1) x1 x2
+                   Tip k1 $ f (K $ toEnum k1) x1 x2
 
     equal (KEC emm1) (KEC emm2) = emm1 == emm2
     nequal (KEC emm1) (KEC emm2) = emm1 /= emm2
 
-instance (Enum k, IsEmm t) => IsEmm (KeyCons k t) where
-    data EnumMapMap (KeyCons k t) v = KCC (EMM k (EnumMapMap t v))
+instance (Enum k, IsEmm t) => IsEmm (k :& t) where
+    data EnumMapMap (k :& t) v = KCC (EMM k (EnumMapMap t v))
 
     empty = KCC Nil
 
@@ -273,7 +269,7 @@ instance (Enum k, IsEmm t) => IsEmm (KeyCons k t) where
           go (Tip _ y)     = size y
           go Nil           = 0
 
-    member !(KeyCons key' nxt) (KCC emm) = go emm
+    member !(key' :& nxt) (KCC emm) = go emm
         where
           go t = case t of
                    Bin _ m l r -> case zero key m of
@@ -285,9 +281,9 @@ instance (Enum k, IsEmm t) => IsEmm (KeyCons k t) where
                    Nil         -> False
           key = fromEnum key'
 
-    singleton (KeyCons key nxt) = KCC . Tip (fromEnum key) . singleton nxt
+    singleton (key :& nxt) = KCC . Tip (fromEnum key) . singleton nxt
 
-    lookup (KeyCons key nxt) (KCC emm) = go emm
+    lookup (key :& nxt) (KCC emm) = go emm
         where
           go (Bin _ m l r)
               | zero (fromEnum key) m = go l
@@ -298,24 +294,24 @@ instance (Enum k, IsEmm t) => IsEmm (KeyCons k t) where
                  False -> Nothing
           go Nil = Nothing
 
-    insert (KeyCons key nxt) val (KCC emm)
+    insert (key :& nxt) val (KCC emm)
         = KCC $ insertWith_ (insert nxt val) key (singleton nxt val) emm
 
-    insertWithKey f k@(KeyCons key nxt) val (KCC emm) =
+    insertWithKey f k@(key :& nxt) val (KCC emm) =
         KCC $ insertWith_ go key (singleton nxt val) emm
             where
               go = insertWithKey (\_ -> f k) nxt val
 
-    delete !(KeyCons key nxt) (KCC emm) =
+    delete !(key :& nxt) (KCC emm) =
         KCC $ alter_ (delete nxt) (fromEnum key) emm
 
     mapWithKey f (KCC emm) = KCC $ mapWithKey_ go emm
         where
-          go k = mapWithKey (\nxt -> f $ KeyCons k nxt)
+          go k = mapWithKey (\nxt -> f $ k :& nxt)
 
     foldrWithKey f init (KCC emm) = foldrWithKey_ go init emm
         where
-          go k val z = foldrWithKey (\nxt -> f $ KeyCons k nxt) z val
+          go k val z = foldrWithKey (\nxt -> f $ k :& nxt) z val
 
     union (KCC emm1) (KCC emm2) = KCC $ mergeWithKey' binD go id id emm1 emm2
         where
@@ -325,7 +321,7 @@ instance (Enum k, IsEmm t) => IsEmm (KeyCons k t) where
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
                    Tip k1 $ unionWithKey (g k1) x1 x2
-              g k1 nxt = f $ KeyCons (toEnum k1) nxt
+              g k1 nxt = f $ (toEnum k1) :& nxt
 
     difference (KCC emm1) (KCC emm2) =
         KCC $ mergeWithKey' binD go id (const Nil) emm1 emm2
@@ -337,7 +333,7 @@ instance (Enum k, IsEmm t) => IsEmm (KeyCons k t) where
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
                    tip k1 $ differenceWithKey (\nxt ->
-                                              f $ KeyCons (toEnum k1) nxt) x1 x2
+                                              f $ (toEnum k1) :& nxt) x1 x2
 
     intersection (KCC emm1) (KCC emm2) =
         KCC $ mergeWithKey' binD go (const Nil) (const Nil) emm1 emm2
@@ -349,7 +345,7 @@ instance (Enum k, IsEmm t) => IsEmm (KeyCons k t) where
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
                    Tip k1 $ intersectionWithKey (\nxt ->
-                                                f $ KeyCons (toEnum k1) nxt) x1 x2
+                                                f $ (toEnum k1) :& nxt) x1 x2
 
     equal (KCC emm1) (KCC emm2) = emm1 == emm2
     nequal (KCC emm1) (KCC emm2) = emm1 /= emm2
@@ -502,6 +498,12 @@ instance (IsEmm k) => Monoid (EnumMapMap k v) where
     mempty = empty
     mappend = union
     mconcat = unions
+
+instance (Show v) => Show (EnumMapMap (K k) v) where
+    show (KEC emm) = show emm
+
+instance (Show v, Show (EnumMapMap t v)) => Show (EnumMapMap (k :& t) v) where
+    show (KCC emm) = show emm
 
 {--------------------------------------------------------------------
   Nat conversion
