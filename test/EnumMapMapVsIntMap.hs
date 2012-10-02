@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, TypeOperators #-}
+{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | This uses QuickCheck to try to check that an 'EnumMapMap'
@@ -10,10 +10,17 @@ import           Test.Hspec.Monadic
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck ()
 
+#ifdef LAZY
 import qualified Data.IntMap as IM
 
-import           Data.EnumMapMap.Base(EnumMapMap, (:&)(..), K(..))
-import qualified Data.EnumMapMap.Base as EMM
+import           Data.EnumMapMap.Lazy(EnumMapMap, (:&)(..), K(..))
+import qualified Data.EnumMapMap.Lazy as EMM
+#else
+import qualified Data.IntMap as IM
+
+import           Data.EnumMapMap.Strict(EnumMapMap, (:&)(..), K(..))
+import qualified Data.EnumMapMap.Strict as EMM
+#endif
 
 type TestMap  = EnumMapMap (K Int)                      Int
 type TestMap2 = EnumMapMap (Int :& K Int)               Int

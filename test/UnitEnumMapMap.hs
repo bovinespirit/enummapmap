@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, TypeOperators #-}
+{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Test.Hspec.HUnit ()
@@ -7,8 +7,13 @@ import           Test.Hspec.QuickCheck ()
 import           Test.HUnit
 import           Test.QuickCheck ()
 
-import           Data.EnumMapMap.Base (EnumMapMap, K(..), (:&)(..))
-import qualified Data.EnumMapMap.Base as EMM
+#ifdef LAZY
+import           Data.EnumMapMap.Lazy(EnumMapMap, (:&)(..), K(..))
+import qualified Data.EnumMapMap.Lazy as EMM
+#else
+import           Data.EnumMapMap.Strict(EnumMapMap, (:&)(..), K(..))
+import qualified Data.EnumMapMap.Strict as EMM
+#endif
 
 tens :: [Int]
 tens = [1, 10, 100, 1000, 10000, 100000, 1000000]

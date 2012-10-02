@@ -3,7 +3,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Data.IntMapMap.Base
+-- Module      :  Data.EnumMapMap.Base
 -- Copyright   :  (c) Daan Leijen 2002
 --                (c) Andriy Palamarchuk 2008
 --                (c) Matthew West 2012
@@ -12,53 +12,14 @@
 -- Stability   :  experimental
 -- Portability :  Uses GHC extensions
 --
--- This defines the data structures and core (hidden) manipulations
--- on representations.  Based on Data.IntMap.Base
+-- Based on Data.IntMap.Base.
+--
+-- This defines the EnumMapMap (k :& t) v instance, and the Key data types.  The
+-- terminating key type is K, and the EnumMapMap (K k) v instances are defined
+-- in EnumMapMap.Lazy and EnumMapMap.Strict.
 -----------------------------------------------------------------------------
 
-module Data.EnumMapMap.Base (
-            -- * Map type
-            K1, K2, K3, K4,
-            (:&)(..), K(..),
-            EnumMapMap,
-            -- * Query
-            size,
-            null,
-            member,
-            lookup,
-            -- * Construction
-            empty,
-            singleton,
-            -- * Insertion
-            insert,
-            insertWith,
-            insertWithKey,
-            -- * Delete\/Update
-            delete,
-            -- * Combine
-            -- ** Union
-            union,
-            unionWith,
-            unionWithKey,
-            unions,
-            -- ** Difference
-            difference,
-            differenceWith,
-            differenceWithKey,
-            -- ** Intersection
-            intersection,
-            intersectionWith,
-            intersectionWithKey,
-            -- * Traversal
-            -- ** Map
-            map,
-            mapWithKey,
-            -- * Folds
-            foldrWithKey,
-            -- * Lists
-            toList,
-            fromList
-) where
+module Data.EnumMapMap.Base where
 
 import           Prelude hiding (lookup,map,filter,foldr,foldl,null, init)
 
@@ -77,17 +38,13 @@ type Key    = Int
 type Prefix = Int
 type Mask   = Int
 
--- | Keys are made up of a list of 'Enums'.
 infixr 3 :&
+-- | Multiple keys are joined by the (':&') constructor.
 data k :& t = !k :& !t
                    deriving (Show, Eq)
+-- | Keys are terminate with the 'K' type
 data K k = K !k
                    deriving (Show, Eq)
-
-type K1 a       = K a
-type K2 a b     = a :& (K1 b)
-type K3 a b c   = a :& (K2 b c)
-type K4 a b c d = a :& (K3 b c d)
 
 class IsEmm k where
     data EnumMapMap k :: * -> *
@@ -147,111 +104,6 @@ class IsEmm k where
     equal ::  Eq v => EnumMapMap k v -> EnumMapMap k v -> Bool
     nequal :: Eq v => EnumMapMap k v -> EnumMapMap k v -> Bool
 
-instance (Enum k) => IsEmm (K k) where
-    data EnumMapMap (K k) v = KEC (EMM k v)
-
-    empty = KEC Nil
-
-    null (KEC t) = case t of
-                     Nil -> True
-                     _   -> False
-
-    size (KEC t) = go t
-        where
-          go (Bin _ _ l r) = go l + go r
-          go (Tip _ _)     = 1
-          go Nil           = 0
-
-    member !(K key') (KEC emm) = go emm
-        where
-          go t = case t of
-                   Bin _ m l r -> case zero key m of
-                                    True  -> go l
-                                    False -> go r
-                   Tip kx _    -> key == kx
-                   Nil         -> False
-          key = fromEnum key'
-
-    singleton !(K key) = KEC . Tip (fromEnum key)
-
-    lookup !(K key') (KEC emm) = go emm
-        where
-          go (Bin _ m l r)
-              | zero key m = go l
-              | otherwise = go r
-          go (Tip kx x)
-             = case kx == key of
-                 True -> Just x
-                 False -> Nothing
-          go Nil = Nothing
-          key = fromEnum key'
-
-    insert !(K key') val (KEC emm) = KEC $ go emm
-        where
-          go t = case t of
-                   Bin p m l r
-                       | nomatch key p m -> join key (Tip key val) p t
-                       | zero key m      -> Bin p m (go l) r
-                       | otherwise       -> Bin p m l (go r)
-                   Tip ky _
-                       | key == ky       -> Tip key val
-                       | otherwise       -> join key (Tip key val) ky t
-                   Nil                   -> Tip key val
-          key = fromEnum key'
-
-    insertWithKey f k@(K key') val (KEC emm) = KEC $ go emm
-        where go t = case t of
-                     Bin p m l r
-                         | nomatch key p m -> join key (Tip key val) p t
-                         | zero key m      -> Bin p m (go l) r
-                         | otherwise       -> Bin p m l (go r)
-                     Tip ky y
-                         | key == ky       -> Tip key (f k val y)
-                         | otherwise       -> join key (Tip key val) ky t
-                     Nil                   -> Tip key val
-              key = fromEnum key'
-
-    delete !(K key') (KEC emm) = KEC $ go emm
-        where
-          go t = case t of
-                   Bin p m l r | nomatch key p m -> t
-                               | zero key m      -> bin p m (go l) r
-                               | otherwise       -> bin p m l (go r)
-                   Tip ky _    | key == ky       -> Nil
-                               | otherwise       -> t
-                   Nil                           -> Nil
-          key = fromEnum key'
-
-    mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> f $ K k) emm
-    foldrWithKey f init (KEC emm) = foldrWithKey_ (\k -> f $ K k) init emm
-
-    union (KEC emm1) (KEC emm2) = KEC $ mergeWithKey' Bin const id id emm1 emm2
-    unionWithKey f (KEC emm1) (KEC emm2) =
-        KEC $ mergeWithKey' Bin go id id emm1 emm2
-            where
-              go = \(Tip k1 x1) (Tip _ x2) ->
-                   Tip k1 $ f (K $ toEnum k1) x1 x2
-
-    difference (KEC emm1) (KEC emm2) =
-        KEC $ mergeWithKey' bin (\_ _ -> Nil) id (const Nil) emm1 emm2
-    differenceWithKey f (KEC emm1) (KEC emm2) =
-        KEC $ mergeWithKey' bin combine id (const Nil) emm1 emm2
-            where
-              combine = \(Tip k1 x1) (Tip _ x2)
-                      -> case f (K $ toEnum k1) x1 x2 of
-                           Nothing -> Nil
-                           Just x -> Tip k1 x
-
-    intersection (KEC emm1) (KEC emm2) =
-        KEC $ mergeWithKey' bin const (const Nil) (const Nil) emm1 emm2
-    intersectionWithKey f (KEC emm1) (KEC emm2) =
-        KEC $ mergeWithKey' bin go (const Nil) (const Nil) emm1 emm2
-            where
-              go = \(Tip k1 x1) (Tip _ x2) ->
-                   Tip k1 $ f (K $ toEnum k1) x1 x2
-
-    equal (KEC emm1) (KEC emm2) = emm1 == emm2
-    nequal (KEC emm1) (KEC emm2) = emm1 /= emm2
 
 instance (Enum k, IsEmm t) => IsEmm (k :& t) where
     data EnumMapMap (k :& t) v = KCC (EMM k (EnumMapMap t v))
@@ -498,9 +350,6 @@ instance (IsEmm k) => Monoid (EnumMapMap k v) where
     mempty = empty
     mappend = union
     mconcat = unions
-
-instance (Show v) => Show (EnumMapMap (K k) v) where
-    show (KEC emm) = show emm
 
 instance (Show v, Show (EnumMapMap t v)) => Show (EnumMapMap (k :& t) v) where
     show (KCC emm) = show emm

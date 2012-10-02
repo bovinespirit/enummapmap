@@ -7,8 +7,8 @@ is built using an infix operator (:&) and a base type, K.  A typical use might
 look like this:
 
 ```haskell
-import           EnumMapMap (EnumMapMap, (:&)(..), K(..)
-import qualified EnumMapMap as EMM
+import           EnumMapMap.Strict (EnumMapMap, (:&)(..), K(..)
+import qualified EnumMapMap.Strict as EMM
 
 data Apple = Apple {weight :: Int, Circumference :: Int}
 newtype AppleID = AppleID Int
@@ -33,6 +33,6 @@ im = EMM.singleton (K 3) "Three"
 im' = EMM.insert (K 5) "Five" im
 ```
 
-The code ensures that only the root EnumMap can be empty.
-
-
+The code ensures that only the root EnumMap can be empty.  There are lazy and
+strict varients.  Both are strict in the Keys, but the strict version is strict
+on values as well.
