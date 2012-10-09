@@ -36,3 +36,23 @@ im' = EMM.insert (K 5) "Five" im
 The code ensures that only the root EnumMap can be empty.  There are lazy and
 strict varients.  Both are strict in the Keys, but the strict version is strict
 on values as well.
+
+The keys can be split to allow operations on whole branches. The level of the
+split is defined by a type.  These types range from `d1` to `d10`.
+
+```haskell
+
+tree = EMM.lookup (o &: K t) $ splitKey EMM.d1 orchards
+newOrchards = joinKey $ delete (K o) $ splitKey EMM.d2 orchards
+```
+
+TODO:
+
+Documentation
+More tests - especially checking that only the root EnumMap can be empty
+Fix joinKey - currently allows branches to be empty in merged EnumMapMap
+More functions - mapMaybe, update, alter, mergeWithKey would be good
+EnumMapSet
+Benchmarks
+Replace d1..d10 with numbers
+
