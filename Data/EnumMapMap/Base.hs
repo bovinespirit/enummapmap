@@ -25,11 +25,8 @@ module Data.EnumMapMap.Base(
             (:&)(..), K(..), N(..), Z(..),
             d1, d2, d3, d4, d5, d6, d7, d8, d9, d10,
             -- * Split/Join Keys
-            IsSplit,
+            IsSplit(..),
             Plus,
-            Head,
-            Tail,
-            splitKey,
             -- * Internal
             -- ** IsEMM
             EMM(..),
@@ -114,6 +111,14 @@ d10 =  N d9
 class IsSplit k z where
     type Head k z :: *
     type Tail k z :: *
+    -- | Split a key so that an 'EnumMapMap' becomes an 'EnumMapMap' of
+    -- 'EnumMapMap's.
+    --
+    -- > newtype ID = ID Int deriving Enum
+    -- > emm = empty :: EnumMapMap (Int :& K ID) Bool
+    -- > res :: EnumMapMap (K ID) Bool
+    -- > res = lookup (K 5) $ splitKey d1 emm
+    --
     splitKey :: z -> EnumMapMap k v
              -> EnumMapMap (Head k z) (EnumMapMap (Tail k z) v)
 
@@ -126,58 +131,114 @@ type family Plus k1 k2 :: *
 type instance Plus (k1 :& t) k2 = k1 :& (Plus t k2)
 
 class IsEmm k where
+    -- | A map of keys to values.  The keys are 'Enum' types but are stored as 'Int's
+    -- so any keys with the same 'Int' value are treated as the same.  The aim is to
+    -- provide typesafe indexing.
     data EnumMapMap k :: * -> *
 
+    -- | Join a key so that an 'EnumMapMap' of
+    -- 'EnumMapMap's becomes an 'EnumMap'.
+    --
+    -- > newtype ID = ID Int deriving Enum
+    -- > emm :: EnumMapMap (K Int) (EnumMapMap (K ID) Bool)
+    -- > res :: EnumMapMap (Int :& K ID) Bool
+    -- > res = joinKey emm
+    --
+    -- 'joinKey' is the opposite of 'splitKey'.
+    --
+    -- > emm = empty :: EnumMapMap (Int :& Int :& K ID) Bool)
+    -- > emm == joinKey $ splitKey d2 emm
+    --
     joinKey :: EnumMapMap k (EnumMapMap k2 v)
             -> EnumMapMap (Plus k k2) v
 
+    -- | The empty 'EnumMapMap'.
     empty :: EnumMapMap k v
+    -- | Is the 'EnumMapMap' empty?
+    --
+    -- Submaps can never be empty, so the following should always hold true:
+    --
+    -- > emm :: EnumMapMap (Int :& Int :& K ID) Bool)
+    -- > null $ splitKey x emm == False
     null :: EnumMapMap k v -> Bool
+    -- | Number of elements in the 'EnumMapMap'.
     size :: EnumMapMap k v -> Int
+    -- | Is the key present in the 'EnumMapMap'?
     member :: k -> EnumMapMap k v -> Bool
+    -- | An 'EnumMapMap' with one element
+    --
+    -- > singleton (5 :& K 3) "a" == fromList [(5 :& K 3, "a")]
     singleton :: k -> v -> EnumMapMap k v
+    -- | Lookup up the value at a key in the 'EnumMapMap'.
+    --
+    -- > emm = fromList [(3 :& K 1, "a")]
+    -- > lookup (3 :& K 1) emm == Just "a"
+    -- > lookup (2 :& K 1) emm == Nothing
+    --
     lookup :: k -> EnumMapMap k v -> Maybe v
+    -- | Insert a new Key\/Value pair into the 'EnumMapMap'.
     insert :: k -> v -> EnumMapMap k v -> EnumMapMap k v
+    -- | Insert with a combining function.
     insertWith :: (v -> v -> v)
                   -> k -> v -> EnumMapMap k v -> EnumMapMap k v
     insertWith f = insertWithKey (\_ -> f)
+    -- | Insert with a combining function.
     insertWithKey :: (k -> v -> v -> v)
                   -> k -> v -> EnumMapMap k v -> EnumMapMap k v
+    -- | Remove a key and it's value from the 'EnumMapMap'.  If the key is not
+    -- present the original 'EnumMapMap' is returned.
     delete :: k -> EnumMapMap k v -> EnumMapMap k v
+    -- | Map a function over all values in the 'EnumMapMap'.
     map :: (v -> t) -> EnumMapMap k v -> EnumMapMap k t
     map f = mapWithKey (\_ -> f)
+    -- | Map a function over all key\/value pairs in the 'EnumMapMap'.
     mapWithKey :: (k -> v -> t) -> EnumMapMap k v -> EnumMapMap k t
+    -- | Fold the keys and values in the map using the given right-associative
+    -- binary operator.
     foldrWithKey :: (k -> v -> t -> t) -> t -> EnumMapMap k v -> t
+    -- |  Convert the 'EnumMapMap' to a list of key\/value pairs.
     toList :: EnumMapMap k v -> [(k, v)]
     toList = foldrWithKey (\k x xs -> (k, x):xs) []
+    -- | Create a 'EnumMapMap' from a list of key\/value pairs.
     fromList :: [(k, v)] -> EnumMapMap k v
     fromList = foldlStrict (\t (k, x) -> insert k x t) empty
+    -- | The (left-biased) union of two 'EnumMapMap's.
+    -- It prefers the first 'EnumMapMap' when duplicate keys are encountered.
     union :: EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
+    -- | The union of a list of maps.
     unions :: [EnumMapMap k v] -> EnumMapMap k v
     unions = foldlStrict union empty
+    -- | The union with a combining function.
     unionWith :: (v -> v -> v)
               -> EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
     unionWith f = unionWithKey (\_ -> f)
+    -- | The union with a combining function.
     unionWithKey :: (k -> v -> v -> v)
                  -> EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
+    -- | Difference between two 'EnumMapMap's (based on keys).
     difference ::  EnumMapMap k v1 -> EnumMapMap k v2 -> EnumMapMap k v1
+    -- | Difference with a combining function.
     differenceWith :: (v1 -> v2 -> Maybe v1)
                    -> EnumMapMap k v1
                    -> EnumMapMap k v2
                    -> EnumMapMap k v1
     differenceWith f = differenceWithKey (\_ -> f)
+    -- | Difference with a combining function.
     differenceWithKey :: (k -> v1 -> v2 -> Maybe v1)
                       -> EnumMapMap k v1
                       -> EnumMapMap k v2
                       -> EnumMapMap k v1
+    -- | The (left-biased) intersection of two 'EnumMapMap' (based on keys).
     intersection :: EnumMapMap k v1
                  -> EnumMapMap k v2
                  -> EnumMapMap k v1
+    -- | The intersection with a combining function.
     intersectionWith :: (v1 -> v2 -> v3)
                      -> EnumMapMap k v1
                      -> EnumMapMap k v2
                      -> EnumMapMap k v3
     intersectionWith f = intersectionWithKey (\_ -> f)
+    -- | The intersection with a combining function.
     intersectionWithKey :: (k -> v1 -> v2 -> v3)
                         -> EnumMapMap k v1
                         -> EnumMapMap k v2
@@ -306,9 +367,9 @@ insertWith_ f !key' val emm = key `seq` go emm
       key = fromEnum key'
 {-# INLINE insertWith_ #-}
 
--- 'alter_' is used to walk down the tree to find the EnumMapMap to actually
--- change.  If the new EnumMapMap is null then it's removed from the containing
--- EMM.
+-- | 'alter_' is used to walk down the tree to find the 'EnumMapMap' to actually
+-- change.  If the new 'EnumMapMap' is null then it's removed from the containing
+-- 'EMM'.
 alter_ :: (IsEmm b) =>
           (EnumMapMap b v -> EnumMapMap b v)
        -> Key
@@ -344,6 +405,7 @@ foldrWithKey_ f z = \emm ->
       go z' (Bin _ _ l r) = go (go z' r) l
 {-# INLINE foldrWithKey_ #-}
 
+-- | See 'IntMap' documentation for an explanation of 'mergeWithKey''.
 mergeWithKey' :: (Enum a) =>
                  (Prefix -> Mask -> EMM a v3 -> EMM a v3 -> EMM a v3)
               -> (EMM a v1 -> EMM a v2 -> EMM a v3)
