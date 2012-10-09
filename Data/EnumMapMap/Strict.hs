@@ -1,5 +1,5 @@
-{-# LANGUAGE MagicHash, TypeFamilies, TypeOperators, BangPatterns,
-             FlexibleInstances #-}
+{-# LANGUAGE MagicHash, MultiParamTypeClasses, TypeFamilies, TypeOperators,
+  BangPatterns, FlexibleInstances, FlexibleContexts #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
@@ -18,6 +18,7 @@
 module Data.EnumMapMap.Strict (
             -- * Key types
             (:&)(..), K(..),
+            d1, d2, d3, d4, d5, d6, d7, d8, d9, d10,
             -- * Map Type
             EnumMapMap,
             -- * Query
@@ -56,7 +57,10 @@ module Data.EnumMapMap.Strict (
             foldrWithKey,
             -- * Lists
             toList,
-            fromList
+            fromList,
+            -- * Split/Join Keys
+            splitKey,
+            joinKey
 ) where
 
 import           Prelude hiding (lookup,map,filter,foldr,foldl,null, init)
@@ -65,6 +69,8 @@ import           Data.EnumMapMap.Base
 
 instance (Enum k) => IsEmm (K k) where
     data EnumMapMap (K k) v = KEC (EMM k v)
+
+    joinKey (KEC emm) = KCC emm
 
     empty = KEC Nil
 
@@ -138,8 +144,8 @@ instance (Enum k) => IsEmm (K k) where
                    Nil                           -> Nil
           key = fromEnum key'
 
-    mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> id $! f $ K k) emm
-    foldrWithKey f init (KEC emm) = foldrWithKey_ (\k -> f $ K k) init emm
+    mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> id $! f $! K k) emm
+    foldrWithKey f init (KEC emm) = foldrWithKey_ (\k -> f $! K k) init emm
 
     union (KEC emm1) (KEC emm2) = KEC $ mergeWithKey' Bin const id id emm1 emm2
     unionWithKey f (KEC emm1) (KEC emm2) =
@@ -176,3 +182,13 @@ instance (Enum k) => IsEmm (K k) where
 instance (Show v) => Show (EnumMapMap (K k) v) where
     show (KEC emm) = show emm
 
+{---------------------------------------------------------------------
+ Split/Join Keys
+---------------------------------------------------------------------}
+
+type instance Plus (K k1) k2 = k1 :& k2
+
+instance IsSplit (k :& t) Z where
+    type Head (k :& t) Z = K k
+    type Tail (k :& t) Z = t
+    splitKey Z (KCC emm) = KEC $ emm

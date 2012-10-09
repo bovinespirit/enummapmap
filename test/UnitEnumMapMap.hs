@@ -1,11 +1,12 @@
 {-# LANGUAGE CPP, GeneralizedNewtypeDeriving, TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
+import           Control.Monad (liftM, liftM2)
 import           Test.Hspec.HUnit ()
 import           Test.Hspec.Monadic
-import           Test.Hspec.QuickCheck ()
+import           Test.Hspec.QuickCheck (prop)
 import           Test.HUnit
-import           Test.QuickCheck ()
+import           Test.QuickCheck (Arbitrary, arbitrary, shrink)
 
 #ifdef LAZY
 import           Data.EnumMapMap.Lazy(EnumMapMap, (:&)(..), K(..))
@@ -14,6 +15,14 @@ import qualified Data.EnumMapMap.Lazy as EMM
 import           Data.EnumMapMap.Strict(EnumMapMap, (:&)(..), K(..))
 import qualified Data.EnumMapMap.Strict as EMM
 #endif
+
+instance (Arbitrary a, Arbitrary b) => Arbitrary (a :& b) where
+    arbitrary = liftM2 (:&) arbitrary arbitrary
+    shrink (x :& y) =    [ x' :& y | x' <- shrink x ]
+                      ++ [ x :& y' | y' <- shrink y ]
+
+instance (Arbitrary a) => Arbitrary (K a) where
+    arbitrary = liftM K arbitrary
 
 tens :: [Int]
 tens = [1, 10, 100, 1000, 10000, 100000, 1000000]
@@ -170,3 +179,20 @@ main =
         describe "Level 1" $ do
           it "includes every key from each EnumMapMap" $
                (EMM.union l1odds l1evens) @?= l1alls
+
+      describe "joinKey $ splitKey z t == t" $ do
+        let go21 :: [(Int :& K Int, Int)] -> Bool
+            go21 l = emm == (EMM.joinKey $ EMM.splitKey EMM.d1 emm)
+                where emm = EMM.fromList l
+        prop "Level 2, depth = 1" go21
+
+        let go31 :: [(Int :& Int :& K Int, Int)] -> Bool
+            go31 l = emm == (EMM.joinKey $ EMM.splitKey EMM.d1 emm)
+                where emm = EMM.fromList l
+        prop "Level 3, depth = 1" go31
+
+        let go32 :: [(Int :& Int :& K Int, Int)] -> Bool
+            go32 l = emm == (EMM.joinKey $ EMM.splitKey EMM.d2 emm)
+                where emm = EMM.fromList l
+        prop "Level 3, depth = 2" go32
+

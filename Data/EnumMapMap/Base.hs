@@ -1,5 +1,6 @@
-{-# LANGUAGE MagicHash, TypeFamilies, MultiParamTypeClasses, StandaloneDeriving,
-             BangPatterns, FlexibleInstances, TypeOperators,  FlexibleContexts #-}
+{-# LANGUAGE MagicHash, TypeFamilies, MultiParamTypeClasses,
+    StandaloneDeriving, BangPatterns, FlexibleInstances, TypeOperators,
+    FlexibleContexts #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -21,7 +22,12 @@
 
 module Data.EnumMapMap.Base where
 
-import           Prelude hiding (lookup,map,filter,foldr,foldl,null, init)
+import           Prelude hiding (lookup,
+                                 map,
+                                 filter,
+                                 foldr, foldl,
+                                 null, init,
+                                 head, tail)
 
 import           Data.Bits
 import           Data.Monoid (Monoid(..))
@@ -39,15 +45,63 @@ type Prefix = Int
 type Mask   = Int
 
 infixr 3 :&
--- | Multiple keys are joined by the (':&') constructor.
+-- | Multiple keys are joined by the (':&') constructor and terminated with 'K'.
+--
+-- > multiKey :: Int :& Int :& K Int
+-- > multiKey = 5 :& 6 :& K 5
+--
 data k :& t = !k :& !t
                    deriving (Show, Eq)
--- | Keys are terminate with the 'K' type
+-- | Keys are terminated with the 'K' type
+--
+-- > singleKey :: K Int
+-- > singleKey = K 5
+--
 data K k = K !k
-                   deriving (Show, Eq)
+           deriving (Show, Eq)
+data Z = Z
+data N n = N n
+
+d1 ::  Z
+d1  =  Z
+d2 ::  N(Z)
+d2  =  N d1
+d3 ::  N(N(Z))
+d3  =  N d2
+d4 ::  N(N(N(Z)))
+d4  =  N d3
+d5 ::  N(N(N(N(Z))))
+d5  =  N d4
+d6 ::  N(N(N(N(N(Z)))))
+d6  =  N d5
+d7 ::  N(N(N(N(N(N(Z))))))
+d7  =  N d6
+d8 ::  N(N(N(N(N(N(N(Z)))))))
+d8  =  N d7
+d9 ::  N(N(N(N(N(N(N(N(Z))))))))
+d9  =  N d8
+d10 :: N(N(N(N(N(N(N(N(N(Z)))))))))
+d10 =  N d9
+
+class IsSplit k z where
+    type Head k z :: *
+    type Tail k z :: *
+    splitKey :: z -> EnumMapMap k v
+             -> EnumMapMap (Head k z) (EnumMapMap (Tail k z) v)
+
+instance (IsSplit t n, Enum k) => IsSplit (k :& t) (N n) where
+    type Head (k :& t) (N n) = k :& (Head t n)
+    type Tail (k :& t) (N n) = Tail t n
+    splitKey (N n) (KCC emm) = KCC $ mapWithKey_ (\_ -> splitKey n) emm
+
+type family Plus k1 k2 :: *
+type instance Plus (k1 :& t) k2 = k1 :& (Plus t k2)
 
 class IsEmm k where
     data EnumMapMap k :: * -> *
+
+    joinKey :: EnumMapMap k (EnumMapMap k2 v)
+            -> EnumMapMap (Plus k k2) v
 
     empty :: EnumMapMap k v
     null :: EnumMapMap k v -> Bool
@@ -107,6 +161,8 @@ class IsEmm k where
 
 instance (Enum k, IsEmm t) => IsEmm (k :& t) where
     data EnumMapMap (k :& t) v = KCC (EMM k (EnumMapMap t v))
+
+    joinKey (KCC emm) = KCC $ mapWithKey_ (\_ -> joinKey) emm
 
     empty = KCC Nil
 
