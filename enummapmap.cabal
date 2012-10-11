@@ -8,7 +8,6 @@ author:             Matthew West and authors of containers v5.0
 maintainer:
 category:           Data
 build-type:         Simple
-tested-with:        ghc741
 
 cabal-version:      >=1.10
 
@@ -65,7 +64,7 @@ Test-Suite test-enummapmap-strict
                       hspec >= 0.9,
                       deepseq,
                       enummapmap
-    cpp-options:      -DTESTING
+    cpp-options:      -DTESTING -DSTRICT
 
 Test-Suite test-enummapmap-intmap-strict
     type:             exitcode-stdio-1.0
@@ -80,4 +79,4 @@ Test-Suite test-enummapmap-intmap-strict
                       deepseq,
                       containers >= 0.4.2,
                       enummapmap
-    cpp-options:      -DTESTING
+    cpp-options:      -DTESTING -DSTRICT

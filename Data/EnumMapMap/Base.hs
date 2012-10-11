@@ -136,8 +136,14 @@ class IsEmm k where
     -- provide typesafe indexing.
     data EnumMapMap k :: * -> *
 
+    -- | No subtrees should be empty.  Returns 'True' if one is.
+    emptySubTrees  :: EnumMapMap k v -> Bool
+    emptySubTrees_ :: EnumMapMap k v -> Bool
+
+    removeEmpties :: EnumMapMap k v -> EnumMapMap k v
+
     -- | Join a key so that an 'EnumMapMap' of
-    -- 'EnumMapMap's becomes an 'EnumMap'.
+    -- 'EnumMapMap's becomes an 'EnumMapMap'.
     --
     -- > newtype ID = ID Int deriving Enum
     -- > emm :: EnumMapMap (K Int) (EnumMapMap (K ID) Bool)
@@ -149,8 +155,22 @@ class IsEmm k where
     -- > emm = empty :: EnumMapMap (Int :& Int :& K ID) Bool)
     -- > emm == joinKey $ splitKey d2 emm
     --
-    joinKey :: EnumMapMap k (EnumMapMap k2 v)
+    joinKey :: (IsEmm (Plus k k2)) =>
+               EnumMapMap k (EnumMapMap k2 v)
             -> EnumMapMap (Plus k k2) v
+    joinKey = removeEmpties . unsafeJoinKey
+
+    -- | Join a key so that an 'EnumMapMap' of
+    -- 'EnumMapMap's becomes an 'EnumMapMap'.  The unsafe version does not check
+    -- for empty subtrees, so it is faster.
+    --
+    -- > newtype ID = ID Int deriving Enum
+    -- > emm :: EnumMapMap (K Int) (EnumMapMap (K ID) Bool)
+    -- > res :: EnumMapMap (Int :& K ID) Bool
+    -- > res = unsafeJoinKey emm
+    --
+    unsafeJoinKey :: EnumMapMap k (EnumMapMap k2 v)
+                  -> EnumMapMap (Plus k k2) v
 
     -- | The empty 'EnumMapMap'.
     empty :: EnumMapMap k v
@@ -251,7 +271,25 @@ class IsEmm k where
 instance (Enum k, IsEmm t) => IsEmm (k :& t) where
     data EnumMapMap (k :& t) v = KCC (EMM k (EnumMapMap t v))
 
-    joinKey (KCC emm) = KCC $ mapWithKey_ (\_ -> joinKey) emm
+    emptySubTrees e@(KCC emm) =
+        case emm of
+          Nil -> False
+          _   -> emptySubTrees_ e
+    emptySubTrees_ (KCC emm) = go emm
+        where
+          go t = case t of
+                   Bin _ _ l r -> go l || go r
+                   Tip _ v     -> emptySubTrees_ v
+                   Nil         -> True
+
+    removeEmpties (KCC emm) = KCC $ go emm
+        where
+          go t = case t of
+                   Bin p m l r -> bin p m (go l) (go r)
+                   Tip k v     -> tip k (removeEmpties v)
+                   Nil         -> Nil
+
+    unsafeJoinKey (KCC emm) = KCC $ mapWithKey_ (\_ -> unsafeJoinKey) emm
 
     empty = KCC Nil
 
@@ -336,12 +374,12 @@ instance (Enum k, IsEmm t) => IsEmm (k :& t) where
         KCC $ mergeWithKey' binD go (const Nil) (const Nil) emm1 emm2
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
-                   Tip k1 $ intersection x1 x2
+                   tip k1 $ intersection x1 x2
     intersectionWithKey f (KCC emm1) (KCC emm2) =
         KCC $ mergeWithKey' binD go (const Nil) (const Nil) emm1 emm2
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
-                   Tip k1 $ intersectionWithKey (\nxt ->
+                   tip k1 $ intersectionWithKey (\nxt ->
                                                 f $ (toEnum k1) :& nxt) x1 x2
 
     equal (KCC emm1) (KCC emm2) = emm1 == emm2

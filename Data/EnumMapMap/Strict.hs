@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash, MultiParamTypeClasses, TypeFamilies, TypeOperators,
-  BangPatterns, FlexibleInstances, FlexibleContexts #-}
+  BangPatterns, FlexibleInstances, FlexibleContexts, CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
@@ -16,6 +16,9 @@
 -----------------------------------------------------------------------------
 
 module Data.EnumMapMap.Strict (
+
+            emptySubTrees,
+
             -- * Key types
             (:&)(..), K(..),
             d1, d2, d3, d4, d5, d6, d7, d8, d9, d10,
@@ -60,7 +63,8 @@ module Data.EnumMapMap.Strict (
             fromList,
             -- * Split/Join Keys
             splitKey,
-            joinKey
+            joinKey,
+            unsafeJoinKey
 ) where
 
 import           Prelude hiding (lookup,map,filter,foldr,foldl,null, init)
@@ -70,7 +74,20 @@ import           Data.EnumMapMap.Base
 instance (Enum k) => IsEmm (K k) where
     data EnumMapMap (K k) v = KEC (EMM k v)
 
-    joinKey (KEC emm) = KCC emm
+    emptySubTrees e@(KEC emm) =
+        case emm of
+          Nil -> False
+          _   -> emptySubTrees_ e
+    emptySubTrees_ (KEC emm) = go emm
+        where
+          go t = case t of
+                   Bin _ _ l r -> go l || go r
+                   Tip _ _     -> False
+                   Nil         -> True
+
+    removeEmpties = id
+
+    unsafeJoinKey (KEC emm) = KCC emm
 
     empty = KEC Nil
 

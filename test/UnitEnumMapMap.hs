@@ -24,6 +24,16 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (a :& b) where
 instance (Arbitrary a) => Arbitrary (K a) where
     arbitrary = liftM K arbitrary
 
+newtype ID1 = ID1 Int
+    deriving (Show, Enum, Arbitrary)
+newtype ID2 = ID2 Int
+    deriving (Show, Enum, Arbitrary)
+newtype ID3 = ID3 Int
+    deriving (Show, Enum, Arbitrary)
+
+type TestKey3 = ID3 :& ID2 :& K ID1
+type TestEmm3 = EnumMapMap TestKey3 Int
+
 tens :: [Int]
 tens = [1, 10, 100, 1000, 10000, 100000, 1000000]
 
@@ -59,6 +69,16 @@ l1evens = EMM.fromList $ map (\(k, v) -> (K k, v)) $ zip evens evens
 
 l1alls :: EnumMapMap (K Int) Int
 l1alls = EMM.fromList $ zip (map K alls) alls
+
+checkSubs :: (TestEmm3 -> TestEmm3 -> TestEmm3)
+          -> [(TestKey3, Int)]
+          -> [(TestKey3, Int)]
+          -> Bool
+checkSubs f l1 l2 =
+    False == (EMM.emptySubTrees $ f emm1 emm2)
+        where
+          emm1 = EMM.fromList l1
+          emm2 = EMM.fromList l2
 
 main :: IO ()
 main =
@@ -161,6 +181,9 @@ main =
              EMM.insertWithKey f (2 :& K 4) 3 emm @?=
                 EMM.fromList [(2 :& K 3, 1), (2 :& K 4, 48)]
 
+    describe "delete" $ do
+      prop "leaves no empty subtrees" $ \k l ->
+          not $ EMM.emptySubTrees $ EMM.delete k $ (EMM.fromList l :: TestEmm3)
 
     describe "foldrWithKey" $ do
       describe "Level 1" $ do
@@ -179,6 +202,24 @@ main =
         describe "Level 1" $ do
           it "includes every key from each EnumMapMap" $
                (EMM.union l1odds l1evens) @?= l1alls
+        -- Just in case...
+        prop "Leaves no empty subtrees" $ checkSubs EMM.union
+
+      describe "difference" $ do
+        prop "Leaves no empty subtrees" $ checkSubs EMM.difference
+
+      describe "differenceWithKey" $ do
+        let f (k1 :& k2 :& K k3) v1 v2 =
+                Just $ v1 + v2 + (fromEnum k1) + (fromEnum k2) + (fromEnum k3)
+        prop "Leaves no empty subtrees" $ checkSubs (EMM.differenceWithKey f)
+
+      describe "intersection" $ do
+        prop "Leaves no empty subtrees" $ checkSubs EMM.intersection
+
+      describe "intersectionWithKey" $ do
+        let f (k1 :& k2 :& K k3) v1 v2 =
+                v1 + v2 + (fromEnum k1) + (fromEnum k2) + (fromEnum k3)
+        prop "Leaves no empty subtrees" $ checkSubs (EMM.intersectionWithKey f)
 
       describe "joinKey $ splitKey z t == t" $ do
         let go21 :: [(Int :& K Int, Int)] -> Bool
