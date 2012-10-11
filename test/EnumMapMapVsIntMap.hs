@@ -297,6 +297,24 @@ main = hspecX $ do
              runPropL4 (IM.delete i)
                            (EMM.delete (i :& k1 :& k2 :& K k3)) k1 k2 k3
 
+    describe "alter" $ do
+        let f b n v = case v of
+                          Just v' -> case b of
+                                       True  -> Just v'
+                                       False -> Nothing
+                          Nothing -> case b of
+                                       True -> Just n
+                                       False -> Nothing
+        prop "Level 1" $ \i b n ->
+            runPropL (IM.alter (f b n) i) $
+                     EMM.alter (f b n) (K i)
+        prop "Level 2" $ \i b n k1 ->
+            runPropL2 (IM.alter (f b n) i)
+                         (EMM.alter (f b n) (i :& K k1)) k1
+        prop "Level 3" $ \i b n k1 k2 ->
+            runPropL3 (IM.alter (f b n) i)
+                         (EMM.alter (f b n) (i :& k1 :& K k2)) k1 k2
+
     describe "foldrWithKey" $ do
         let f a b c = [a + b] ++ c
         prop "Level 1" $

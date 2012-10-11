@@ -208,6 +208,9 @@ class IsEmm k where
     -- | Remove a key and it's value from the 'EnumMapMap'.  If the key is not
     -- present the original 'EnumMapMap' is returned.
     delete :: k -> EnumMapMap k v -> EnumMapMap k v
+    -- | The expression (@'alter' f k emm@) alters the value at @k@, or absence thereof.
+    -- 'alter' can be used to insert, delete, or update a value in an 'EnumMapMap'.
+    alter :: (Maybe v -> Maybe v) -> k -> EnumMapMap k v -> EnumMapMap k v
     -- | Map a function over all values in the 'EnumMapMap'.
     map :: (v -> t) -> EnumMapMap k v -> EnumMapMap k t
     map f = mapWithKey (\_ -> f)
@@ -340,6 +343,9 @@ instance (Enum k, IsEmm t) => IsEmm (k :& t) where
     delete !(key :& nxt) (KCC emm) =
         KCC $ alter_ (delete nxt) (fromEnum key) emm
 
+    alter f !(key :& nxt) (KCC emm) =
+        KCC $ alter_ (alter f nxt) (fromEnum key) emm
+
     mapWithKey f (KCC emm) = KCC $ mapWithKey_ go emm
         where
           go k = mapWithKey (\nxt -> f $ k :& nxt)
@@ -417,12 +423,13 @@ alter_ f k = go
     where
       go t =
           case t of
-            Bin p m l r | nomatch k p m -> t
+            Bin p m l r | nomatch k p m -> joinD k (tip k $ f empty) p t
                         | zero k m      -> binD p m (go l) r
                         | otherwise     -> binD p m l (go r)
             Tip ky y    | k == ky       -> tip k $ f y
-                        | otherwise     -> t
-            Nil                         -> Nil
+                        | otherwise     -> joinD k (tip k $ f empty) ky t
+            Nil                         -> tip k $ f empty
+{-# INLINE alter_ #-}
 
 mapWithKey_ :: Enum k => (k -> v -> t) -> EMM k v -> EMM k t
 mapWithKey_ f = go
@@ -565,6 +572,18 @@ join p1 t1 p2 t2
     m = branchMask p1 p2
     p = mask p1 m
 {-# INLINE join #-}
+
+joinD :: (IsEmm b) =>
+         Prefix -> EMM a (EnumMapMap b v)
+      -> Prefix -> EMM a (EnumMapMap b v)
+      -> EMM a (EnumMapMap b v)
+joinD p1 t1 p2 t2
+  | zero p1 m = binD p m t1 t2
+  | otherwise = binD p m t2 t1
+  where
+    m = branchMask p1 p2
+    p = mask p1 m
+{-# INLINE joinD #-}
 
 {--------------------------------------------------------------------
   @bin@ assures that we never have empty trees within a tree.

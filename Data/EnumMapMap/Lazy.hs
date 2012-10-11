@@ -38,6 +38,7 @@ module Data.EnumMapMap.Lazy (
             insertWithKey,
             -- * Delete\/Update
             delete,
+            alter,
             -- * Combine
             -- ** Union
             union,
@@ -160,6 +161,28 @@ instance (Enum k) => IsEmm (K k) where
                                | otherwise       -> t
                    Nil                           -> Nil
           key = fromEnum key'
+
+    alter f !(K key') (KEC emm) = KEC $ go emm
+        where
+          go t = case t of
+                Bin p m l r
+                    |nomatch key p m -> case f Nothing of
+                                          Nothing -> t
+                                          Just x  -> join key (Tip key x) p t
+                    | zero key m     -> bin p m (go l) r
+                    | otherwise      -> bin p m l (go r)
+                Tip ky y
+                    | key == ky      -> case f (Just y) of
+                                          Just x  -> Tip ky x
+                                          Nothing -> Nil
+                    | otherwise      -> case f Nothing of
+                                          Just x  -> join key (Tip key x) ky t
+                                          Nothing -> Tip ky y
+                Nil                  -> case f Nothing of
+                                          Just x  -> Tip key x
+                                          Nothing -> Nil
+            where
+              key = fromEnum key'
 
     mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> f $ K k) emm
     foldrWithKey f init (KEC emm) = foldrWithKey_ (\k -> f $ K k) init emm

@@ -185,6 +185,16 @@ main =
       prop "leaves no empty subtrees" $ \k l ->
           not $ EMM.emptySubTrees $ EMM.delete k $ (EMM.fromList l :: TestEmm3)
 
+    describe "alter" $ do
+      let f b1 b2 n v = case v of
+                          Nothing -> if b1 then Just n else Nothing
+                          Just v' -> case b1 of
+                                       True  -> Just $ if b2 then v' else n
+                                       False -> Nothing
+      prop "leaves no empty subtrees" $ \k l b1 b2 n ->
+          not $ EMM.emptySubTrees $ EMM.alter (f b1 b2 n) k $
+                  (EMM.fromList l :: TestEmm3)
+
     describe "foldrWithKey" $ do
       describe "Level 1" $ do
         it "folds across all values in an EnumMapMap" $
