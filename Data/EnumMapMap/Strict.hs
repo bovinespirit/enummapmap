@@ -70,6 +70,8 @@ module Data.EnumMapMap.Strict (
 
 import           Prelude hiding (lookup,map,filter,foldr,foldl,null, init)
 
+import           Control.DeepSeq (NFData(rnf))
+
 import           Data.EnumMapMap.Base
 
 instance (Enum k) => IsEmm (K k) where
@@ -221,6 +223,13 @@ instance (Enum k) => IsEmm (K k) where
 
 instance (Show v) => Show (EnumMapMap (K k) v) where
     show (KEC emm) = show emm
+
+instance NFData v => NFData (EnumMapMap (K k) v) where
+    rnf (KEC emm) = go emm
+        where
+          go Nil           = ()
+          go (Tip _ v)     = rnf v
+          go (Bin _ _ l r) = go l `seq` go r
 
 {---------------------------------------------------------------------
  Split/Join Keys

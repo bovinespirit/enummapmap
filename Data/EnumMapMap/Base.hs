@@ -1,5 +1,5 @@
 {-# LANGUAGE MagicHash, TypeFamilies, MultiParamTypeClasses,
-    StandaloneDeriving, BangPatterns, FlexibleInstances, TypeOperators,
+    BangPatterns, FlexibleInstances, TypeOperators,
     FlexibleContexts #-}
 
 -----------------------------------------------------------------------------
@@ -54,6 +54,7 @@ import           Prelude hiding (lookup,
                                  null, init,
                                  head, tail)
 
+import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import           Data.Monoid (Monoid(..))
 import           GHC.Exts (Word(..), Int(..), shiftRL#)
@@ -87,8 +88,16 @@ data K k = K !k
 data Z = Z
 data N n = N n
 
+-- | Split after 1 key.
+--
+-- > emm :: EnumMapMap (T1 :& T2 :& K T3) v
+-- > splitKey d1 emm :: EnumMapMap (T1 :& K T2) (EnumMapMap (K T3) v)
 d1 ::  Z
 d1  =  Z
+-- | Split after 2 keys.
+--
+-- > emm :: EnumMapMap (T1 :& T2 :& K T3) v
+-- > splitKey d1 emm :: EnumMapMap (K T1) (EnumMapMap (T2 :& K T3) v)
 d2 ::  N(Z)
 d2  =  N d1
 d3 ::  N(N(Z))
@@ -118,6 +127,13 @@ class IsSplit k z where
     -- > emm = empty :: EnumMapMap (Int :& K ID) Bool
     -- > res :: EnumMapMap (K ID) Bool
     -- > res = lookup (K 5) $ splitKey d1 emm
+    --
+    -- If the level is too high then the compilation will fail with an error
+    --
+    -- > emm = empty :: EnumMapMap (Int :& Int :& K Int) Bool -- 3 levels
+    -- > res1 = splitKey d4 emm -- ERROR! Instance not found...
+    -- > res2 = splitKey d3 emm -- ERROR! Instance not found...
+    -- > res3 = splitKey d2 emm -- Good
     --
     splitKey :: z -> EnumMapMap k v
              -> EnumMapMap (Head k z) (EnumMapMap (Tail k z) v)
@@ -544,6 +560,14 @@ instance (IsEmm k) => Monoid (EnumMapMap k v) where
 
 instance (Show v, Show (EnumMapMap t v)) => Show (EnumMapMap (k :& t) v) where
     show (KCC emm) = show emm
+
+instance (NFData v, NFData (EnumMapMap t v)) => NFData (EnumMapMap (k :& t) v)
+    where
+      rnf (KCC emm) = go emm
+          where
+            go Nil           = ()
+            go (Tip _ v)     = rnf v
+            go (Bin _ _ l r) = go l `seq` go r
 
 {--------------------------------------------------------------------
   Nat conversion

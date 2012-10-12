@@ -37,7 +37,7 @@ The code ensures that only the root EnumMap can be empty.  There are lazy and
 strict varients.  Both are strict in the Keys, but the strict version is strict
 on values as well.
 
-The keys can be split to allow operations on whole branches. The level of the
+The keys can be split to allow operations on whole subtrees. The level of the
 split is defined by a type.  These types range from `d1` to `d10`.
 
 ```haskell
@@ -46,13 +46,18 @@ tree = EMM.lookup (o &: K t) $ splitKey EMM.d1 orchards
 newOrchards = joinKey $ delete (K o) $ splitKey EMM.d2 orchards
 ```
 
+In the preivious example `unsafeJoinKey` could be used instead of `joinKey` as
+there is no possiblity of an empty subtree being left.
+
 TODO:
 
-Documentation
-More tests - especially checking that only the root EnumMap can be empty
-Fix joinKey - currently allows branches to be empty in merged EnumMapMap
-More functions - mapMaybe, update, alter, mergeWithKey would be good
-EnumMapSet
-Benchmarks
-Replace d1..d10 with numbers
+- More documentation
+- More tests
+- Check that Strict really is strict and Lazy really is lazy.
+- More functions - mapMaybe, update, mergeWithKey
+- EnumMapSet
+- Optimisation - I have just copied code from IntMap, I have not checked that it
+ is efficient.
+- Benchmarks
+- Replace d1..d10 with numbers
 
