@@ -315,6 +315,14 @@ main = hspecX $ do
             runPropL3 (IM.alter (f b n) i)
                          (EMM.alter (f b n) (i :& k1 :& K k2)) k1 k2
 
+    describe "foldr" $ do
+        prop "Level 1" $
+             runProp (IM.foldr (:) []) (EMM.foldr (:) [])
+        prop "Level 2" $
+             runProp2 (IM.foldr (:) []) (EMM.foldr (:) [])
+        prop "Level 3" $
+             runProp3 (IM.foldr (:) []) (EMM.foldr (:) [])
+
     describe "foldrWithKey" $ do
         let f a b c = [a + b] ++ c
         prop "Level 1" $

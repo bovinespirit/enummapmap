@@ -212,7 +212,7 @@ class IsEmm k where
     -- > lookup (2 :& K 1) emm == Nothing
     --
     lookup :: k -> EnumMapMap k v -> Maybe v
-    -- | Insert a new Key\/Value pair into the 'EnumMapMap'.
+    -- | Insert a new key\/value pair into the 'EnumMapMap'.
     insert :: k -> v -> EnumMapMap k v -> EnumMapMap k v
     -- | Insert with a combining function.
     insertWith :: (v -> v -> v)
@@ -232,7 +232,10 @@ class IsEmm k where
     map f = mapWithKey (\_ -> f)
     -- | Map a function over all key\/value pairs in the 'EnumMapMap'.
     mapWithKey :: (k -> v -> t) -> EnumMapMap k v -> EnumMapMap k t
-    -- | Fold the keys and values in the map using the given right-associative
+    -- | Fold the values in the 'EnumMapMap' using the given right-associative
+    -- binary operator
+    foldr :: (v -> t -> t) -> t -> EnumMapMap k v -> t
+    -- | Fold the keys and values in the 'EnumMapMap' using the given right-associative
     -- binary operator.
     foldrWithKey :: (k -> v -> t -> t) -> t -> EnumMapMap k v -> t
     -- |  Convert the 'EnumMapMap' to a list of key\/value pairs.
@@ -365,6 +368,8 @@ instance (Enum k, IsEmm t) => IsEmm (k :& t) where
     mapWithKey f (KCC emm) = KCC $ mapWithKey_ go emm
         where
           go k = mapWithKey (\nxt -> f $ k :& nxt)
+
+    foldr f init (KCC emm) = foldrWithKey_ (\_ val z -> foldr f z val) init emm
 
     foldrWithKey f init (KCC emm) = foldrWithKey_ go init emm
         where

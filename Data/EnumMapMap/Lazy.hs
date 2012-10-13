@@ -57,6 +57,7 @@ module Data.EnumMapMap.Lazy (
             map,
             mapWithKey,
             -- * Folds
+            foldr,
             foldrWithKey,
             -- * Lists
             toList,
@@ -186,6 +187,14 @@ instance (Enum k) => IsEmm (K k) where
               key = fromEnum key'
 
     mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> f $ K k) emm
+    foldr f init (KEC emm) =
+        case emm of Bin _ m l r | m < 0 -> go (go init l) r -- put negative numbers before
+                                | otherwise -> go (go init r) l
+                    _          -> go init emm
+        where
+          go z' Nil           = z'
+          go z' (Tip _ x)     = f x z'
+          go z' (Bin _ _ l r) = go (go z' r) l
     foldrWithKey f init (KEC emm) = foldrWithKey_ (\k -> f $ K k) init emm
 
     union (KEC emm1) (KEC emm2) = KEC $ mergeWithKey' Bin const id id emm1 emm2
