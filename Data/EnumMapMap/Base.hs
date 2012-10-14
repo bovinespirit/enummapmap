@@ -38,7 +38,13 @@ module Data.EnumMapMap.Base(
             foldrWithKey_,
             foldlStrict,
             -- ** IntMap internals
+            Prefix,
+            Mask,
+            Nat,
             Key,
+            intFromNat,
+            shiftRL,
+            shiftLL,
             bin,
             tip,
             nomatch,
@@ -57,7 +63,8 @@ import           Prelude hiding (lookup,
 import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import           Data.Monoid (Monoid(..))
-import           GHC.Exts (Word(..), Int(..), shiftRL#)
+import           GHC.Exts (Word(..), Int(..),
+                           uncheckedShiftRL#, uncheckedShiftL#)
 
 data EMM k v = Bin {-# UNPACK #-} !Prefix {-# UNPACK #-} !Mask
                      !(EMM k v) !(EMM k v)
@@ -586,9 +593,9 @@ intFromNat :: Nat -> Int
 intFromNat = fromIntegral
 {-# INLINE intFromNat #-}
 
-shiftRL :: Nat -> Int -> Nat
-shiftRL (W# x) (I# i)
-  = W# (shiftRL# x i)
+shiftRL, shiftLL :: Nat -> Int -> Nat
+shiftRL (W# x) (I# i) = W# (uncheckedShiftRL# x i)
+shiftLL (W# x) (I# i) = W# (uncheckedShiftL#  x i)
 
 {--------------------------------------------------------------------
   Join
