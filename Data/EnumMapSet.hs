@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns, CPP, MagicHash, TypeFamilies #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -26,6 +27,7 @@ module Data.EnumMapSet (
             empty,
             singleton,
             insert,
+            delete,
             -- * Folds
             foldr,
             -- * Lists
@@ -45,12 +47,12 @@ import           GHC.Exts (Word(..), Int(..))
 import           GHC.Prim (indexInt8OffAddr#)
 #include "MachDeps.h"
 
--- A lot of EnumMapMap functions will be overwritten, so we import it qualified,
--- then import a load of them directly to keep the code cleaner.
+-- A lot of EnumMapMap functions will be overwritten, so we import it qualified
+-- then import the internal functions unqualified to make the code neater.
 import           Data.EnumMapMap.Base ((:&)(..), K(..), EMM(..),
                                        IsEmm,
                                        Prefix, Mask, Key, Nat,
-                                       intFromNat,
+                                       intFromNat, bin,
                                        shiftRL, shiftLL,
                                        EnumMapMap(..),
                                        match, nomatch, zero,
@@ -104,13 +106,15 @@ instance (Enum k) => EMM.IsEmm (K k) where
 
     singleton (K key') _
         = key `seq` KSC $ Tip (prefixOf key) (bitmapOf key)
-          where
-            key = fromEnum key'
+          where key = fromEnum key'
 
     insert (K key') _ (KSC ems)
         = key `seq` KSC $ insertBM (prefixOf key) (bitmapOf key) ems
-          where
-            key = fromEnum key'
+          where key = fromEnum key'
+
+    delete (K key') (KSC ems)
+        = key `seq` KSC $ deleteBM (prefixOf key) (bitmapOf key) ems
+          where key = fromEnum key'
 
     foldrWithKey f init (KSC ems)
         = case ems of Bin _ m l r | m < 0 -> go (go init l) r
@@ -120,10 +124,11 @@ instance (Enum k) => EMM.IsEmm (K k) where
             go init' Nil           = init'
             go init' (Tip kx bm)   = foldrBits kx f' init' bm
             go init' (Bin _ _ l r) = go (go init' r) l
-            f' k t = f (K $ toEnum k) undefined t
+            f' !k t = f (K $ toEnum k) undefined t
 
     insertWith = undefined
     insertWithKey = undefined
+    alter = undefined
     foldr = undefined
     fromList = undefined
     toList = undefined
@@ -153,6 +158,9 @@ singleton !key = EMM.singleton key ()
 
 insert :: (EMM.IsEmm k) => k -> EnumMapSet k -> EnumMapSet k
 insert !key = EMM.insert key ()
+
+delete :: (EMM.IsEmm k) => k -> EnumMapSet k -> EnumMapSet k
+delete = EMM.delete
 
 -- This function has not been optimised in any way.
 foldr :: (EMM.IsEmm k) => (k -> t -> t) -> t -> EnumMapSet k -> t
@@ -186,6 +194,18 @@ insertBM !kx !bm t
       | kx' == kx -> Tip kx' (bm .|. bm')
       | otherwise -> join kx (Tip kx bm) kx' t
     Nil -> Tip kx bm
+
+deleteBM :: Prefix -> BitMap -> EMM k BitMap -> EMM k BitMap
+deleteBM !kx !bm t
+  = case t of
+      Bin p m l r
+          | nomatch kx p m -> t
+          | zero kx m      -> bin p m (deleteBM kx bm l) r
+          | otherwise      -> bin p m l (deleteBM kx bm r)
+      Tip kx' bm'
+          | kx' == kx -> tip kx (bm' .&. complement bm)
+          | otherwise -> t
+      Nil -> Nil
 
 {--------------------------------------------------------------------
   @tip@ assures that we never have empty bitmaps within a tree.
@@ -244,6 +264,13 @@ highestBitMask x0
 #endif
           x6 -> (x6 `xor` (shiftRL x6 1))
 {-# INLINE highestBitMask #-}
+
+{----------------------------------------------------------------------
+  Folds over a BitMap.
+
+  Commentary and credits can be found with the original code in
+  Data/IntSet/Base.hs in 'containers 5.0'.
+----------------------------------------------------------------------}
 
 lowestBitSet :: Nat -> Int
 highestBitSet :: Nat -> Int
