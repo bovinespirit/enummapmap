@@ -28,6 +28,8 @@ module Data.EnumMapSet (
             singleton,
             insert,
             delete,
+            -- * Combine
+            union,
             -- * Folds
             foldr,
             -- * Lists
@@ -51,12 +53,12 @@ import           GHC.Prim (indexInt8OffAddr#)
 -- then import the internal functions unqualified to make the code neater.
 import           Data.EnumMapMap.Base ((:&)(..), K(..), EMM(..),
                                        IsEmm,
+                                       EnumMapMap(..),
                                        Prefix, Mask, Key, Nat,
                                        intFromNat, bin,
                                        shiftRL, shiftLL,
-                                       EnumMapMap(..),
                                        match, nomatch, zero,
-                                       join,
+                                       join, shorter,
                                        foldlStrict)
 import qualified Data.EnumMapMap.Base as EMM
 
@@ -64,7 +66,7 @@ type EnumMapSet k = EnumMapMap k ()
 
 type BitMap = Word
 
-instance (Enum k) => EMM.IsEmm (K k) where
+instance (Enum k) => IsEmm (K k) where
     data EnumMapMap (K k) v = KSC (EMM k BitMap)
 
     emptySubTrees e@(KSC emm) =
@@ -126,10 +128,32 @@ instance (Enum k) => EMM.IsEmm (K k) where
             go init' (Bin _ _ l r) = go (go init' r) l
             f' !k t = f (K $ toEnum k) undefined t
 
+    union (KSC ems1) (KSC ems2) = KSC $ go ems1 ems2
+        where
+          go t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
+              | shorter m1 m2  = union1
+              | shorter m2 m1  = union2
+              | p1 == p2       = Bin p1 m1 (go l1 l2) (go r1 r2)
+              | otherwise      = join p1 t1 p2 t2
+              where
+                union1  | nomatch p2 p1 m1  = join p1 t1 p2 t2
+                        | zero p2 m1        = Bin p1 m1 (go l1 t2) r1
+                        | otherwise         = Bin p1 m1 l1 (go r1 t2)
+
+                union2  | nomatch p1 p2 m2  = join p1 t1 p2 t2
+                        | zero p1 m2        = Bin p2 m2 (go t1 l2) r2
+                        | otherwise         = Bin p2 m2 l2 (go t1 r2)
+
+          go t@(Bin _ _ _ _) (Tip kx bm) = insertBM kx bm t
+          go t@(Bin _ _ _ _) Nil = t
+          go (Tip kx bm) t = insertBM kx bm t
+          go Nil t = t
+
     insertWith = undefined
     insertWithKey = undefined
     alter = undefined
     foldr = undefined
+    unionWith = undefined
     fromList = undefined
     toList = undefined
 
@@ -141,32 +165,35 @@ instance (Enum k) => EMM.IsEmm (K k) where
   GHC will inline away all the empty parameters.
 ---------------------------------------------------------------------}
 
-null :: (EMM.IsEmm k) => EnumMapSet k -> Bool
+null :: (IsEmm k) => EnumMapSet k -> Bool
 null = EMM.null
 
-size :: (EMM.IsEmm k) => EnumMapSet k -> Int
+size :: (IsEmm k) => EnumMapSet k -> Int
 size = EMM.size
 
-member ::(EMM.IsEmm k) => k -> EnumMapSet k -> Bool
+member ::(IsEmm k) => k -> EnumMapSet k -> Bool
 member = EMM.member
 
-empty :: (EMM.IsEmm k) => EnumMapSet k
+empty :: (IsEmm k) => EnumMapSet k
 empty = EMM.empty
 
-singleton :: (EMM.IsEmm k) => k -> EnumMapSet k
+singleton :: (IsEmm k) => k -> EnumMapSet k
 singleton !key = EMM.singleton key ()
 
-insert :: (EMM.IsEmm k) => k -> EnumMapSet k -> EnumMapSet k
+insert :: (IsEmm k) => k -> EnumMapSet k -> EnumMapSet k
 insert !key = EMM.insert key ()
 
-delete :: (EMM.IsEmm k) => k -> EnumMapSet k -> EnumMapSet k
+delete :: (IsEmm k) => k -> EnumMapSet k -> EnumMapSet k
 delete = EMM.delete
 
 -- This function has not been optimised in any way.
-foldr :: (EMM.IsEmm k) => (k -> t -> t) -> t -> EnumMapSet k -> t
+foldr :: (IsEmm k) => (k -> t -> t) -> t -> EnumMapSet k -> t
 foldr f = EMM.foldrWithKey go
     where
       go k _ z = f k z
+
+union :: (IsEmm k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
+union = EMM.union
 
 {---------------------------------------------------------------------
   List

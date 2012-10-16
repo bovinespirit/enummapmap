@@ -34,6 +34,16 @@ runProp :: Eq t =>
 runProp f g list =
     (f $ IS.fromList list) == (g $ EMS.fromList $ list2l1 list)
 
+runPropDuo1 :: Eq t =>
+              (IS.IntSet -> IS.IntSet -> t)
+           -> (TestSet1 -> TestSet1 -> t)
+           -> [Int]
+           -> [Int]
+           -> Bool
+runPropDuo1 f g list1 list2
+    = (f (IS.fromList list1) $ IS.fromList list2)
+      == (g (EMS.fromList $ list2l1 list1) $ EMS.fromList $ list2l1 list2)
+
 runProp2 :: Eq t =>
            (IS.IntSet -> t)
         -> (TestSet2 -> t)
@@ -42,6 +52,18 @@ runProp2 :: Eq t =>
         -> Bool
 runProp2 f g k1 list
     = (f $ IS.fromList list) == (g $ EMS.fromList $ list2l2 k1 list)
+
+runPropDuo2 :: Eq t =>
+              (IS.IntSet -> IS.IntSet -> t)
+           -> (TestSet2 -> TestSet2 -> t)
+           -> Int
+           -> [Int]
+           -> [Int]
+           -> Bool
+runPropDuo2 f g k1 list1 list2
+    = (f (IS.fromList list1) $ IS.fromList list2)
+      == (g (EMS.fromList $ list2l2 k1 list1) $
+            EMS.fromList $ list2l2 k1 list2)
 
 runProp3 :: Eq t =>
            (IS.IntSet -> t)
@@ -52,12 +74,33 @@ runProp3 :: Eq t =>
 runProp3 f g k1 k2 list
     = (f $ IS.fromList list) == (g $ EMS.fromList $ list2l3 k1 k2 list)
 
+runPropDuo3 :: Eq t =>
+              (IS.IntSet -> IS.IntSet -> t)
+           -> (TestSet3 -> TestSet3 -> t)
+           -> Int -> Int
+           -> [Int]
+           -> [Int]
+           -> Bool
+runPropDuo3 f g k1 k2 list1 list2
+    = (f (IS.fromList list1) $ IS.fromList list2)
+      == (g (EMS.fromList $ list2l3 k1 k2 list1) $
+            EMS.fromList $ list2l3 k1 k2 list2)
+
 runPropL :: (IS.IntSet -> IS.IntSet)
          -> (TestSet1 -> TestSet1)
          -> [Int]
          -> Bool
 runPropL f g
     = runProp (list2l1 . IS.toList . f) (EMS.toList . g)
+
+runPropDuoL1 :: (IS.IntSet -> IS.IntSet -> IS.IntSet)
+             -> (TestSet1 -> TestSet1 -> TestSet1)
+             -> [Int]
+             -> [Int]
+             -> Bool
+runPropDuoL1 f g =
+    runPropDuo1 (\a b -> list2l1 $ IS.toList $ f a b)
+                    (\a b -> EMS.toList $ g a b)
 
 runPropL2 :: (IS.IntSet -> IS.IntSet)
          -> (TestSet2 -> TestSet2)
@@ -67,6 +110,16 @@ runPropL2 :: (IS.IntSet -> IS.IntSet)
 runPropL2 f g k1
     = runProp2 (list2l2 k1 . IS.toList . f) (EMS.toList . g) k1
 
+runPropDuoL2 :: (IS.IntSet -> IS.IntSet -> IS.IntSet)
+             -> (TestSet2 -> TestSet2 -> TestSet2)
+             -> Int
+             -> [Int]
+             -> [Int]
+             -> Bool
+runPropDuoL2 f g k1 =
+    runPropDuo2 (\a b -> list2l2 k1 $ IS.toList $ f a b)
+                    (\a b -> EMS.toList $ g a b) k1
+
 runPropL3 :: (IS.IntSet -> IS.IntSet)
          -> (TestSet3 -> TestSet3)
          -> Int -> Int
@@ -74,6 +127,16 @@ runPropL3 :: (IS.IntSet -> IS.IntSet)
          -> Bool
 runPropL3 f g k1 k2
     = runProp3 (list2l3 k1 k2 . IS.toList . f) (EMS.toList . g) k1 k2
+
+runPropDuoL3 :: (IS.IntSet -> IS.IntSet -> IS.IntSet)
+             -> (TestSet3 -> TestSet3 -> TestSet3)
+             -> Int -> Int
+             -> [Int]
+             -> [Int]
+             -> Bool
+runPropDuoL3 f g k1 k2 =
+    runPropDuo3 (\a b -> list2l3 k1 k2 $ IS.toList $ f a b)
+                    (\a b -> EMS.toList $ g a b) k1 k2
 
 main :: IO ()
 main = hspec $ do
@@ -102,3 +165,11 @@ main = hspec $ do
           runPropL2 (IS.delete k) (EMS.delete $ k :& K k1) k1
       prop "Level 3" $ \k k1 k2 ->
           runPropL3 (IS.delete k) (EMS.delete $ k :& k1 :& K k2) k1 k2
+
+    describe "union" $ do
+      prop "Level 1" $
+           runPropDuoL1 IS.union EMS.union
+      prop "Level 2" $
+           runPropDuoL2 IS.union EMS.union
+      prop "Level 3" $
+           runPropDuoL3 IS.union EMS.union

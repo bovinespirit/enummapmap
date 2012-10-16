@@ -47,6 +47,7 @@ module Data.EnumMapMap.Base(
             shiftLL,
             bin,
             tip,
+            shorter,
             nomatch,
             match,
             join,
