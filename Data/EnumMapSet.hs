@@ -54,14 +54,15 @@ import           GHC.Exts (Word(..), Int(..))
 import           GHC.Prim (indexInt8OffAddr#)
 #include "MachDeps.h"
 
-import           Data.EnumMapMap.Base ((:&)(..), K(..), EMM(..),
+import           Data.EnumMapMap.Base ((:&)(..), K(..),
                                        IsEmm,
                                        EnumMapMap,
-                                       Prefix, Nat,
-                                       intFromNat, bin,
+                                       Prefix, Nat, Mask,
+                                       branchMask, mask,
+                                       intFromNat,
                                        shiftRL, shiftLL,
                                        nomatch, zero,
-                                       join, shorter,
+                                       shorter,
                                        foldlStrict)
 import qualified Data.EnumMapMap.Base as EMM
 
@@ -69,8 +70,16 @@ type EnumMapSet k = EnumMapMap k ()
 
 type BitMap = Word
 
+-- This is used instead of @EMM k BitMap@ in order to unpack the 'BitMap' in
+-- 'Tip'. Hopefully this will lead to much optimisation by GHC.
+data EMS k = Bin {-# UNPACK #-} !Prefix {-# UNPACK #-} !Mask
+                 !(EMS k) !(EMS k)
+           | Tip {-# UNPACK #-} !Int {-# UNPACK #-} !BitMap
+           | Nil
+             deriving (Show)
+
 instance (Enum k) => IsEmm (K k) where
-    data EnumMapMap (K k) v = KSC (EMM k BitMap)
+    data EnumMapMap (K k) v = KSC (EMS k)
 
     emptySubTrees e@(KSC emm) =
         case emm of
@@ -328,7 +337,7 @@ toList = foldr (:) []
   Helper functions
 ---------------------------------------------------------------------}
 
-insertBM :: Prefix -> BitMap -> EMM k BitMap -> EMM k BitMap
+insertBM :: Prefix -> BitMap -> EMS k -> EMS k
 insertBM !kx !bm t
     = case t of
     Bin p m l r
@@ -340,7 +349,7 @@ insertBM !kx !bm t
       | otherwise -> join kx (Tip kx bm) kx' t
     Nil -> Tip kx bm
 
-deleteBM :: Prefix -> BitMap -> EMM k BitMap -> EMM k BitMap
+deleteBM :: Prefix -> BitMap -> EMS k -> EMS k
 deleteBM !kx !bm t
   = case t of
       Bin p m l r
@@ -352,10 +361,25 @@ deleteBM !kx !bm t
           | otherwise -> t
       Nil -> Nil
 
+join :: Prefix -> EMS k -> Prefix -> EMS k -> EMS k
+join p1 t1 p2 t2
+  | zero p1 m = Bin p m t1 t2
+  | otherwise = Bin p m t2 t1
+  where
+    m = branchMask p1 p2
+    p = mask p1 m
+{-# INLINE join #-}
+
+bin :: Prefix -> Mask -> EMS k -> EMS k -> EMS k
+bin _ _ l Nil = l
+bin _ _ Nil r = r
+bin p m l r   = Bin p m l r
+{-# INLINE bin #-}
+
 {--------------------------------------------------------------------
   @tip@ assures that we never have empty bitmaps within a tree.
 --------------------------------------------------------------------}
-tip :: Prefix -> BitMap -> EMM k BitMap
+tip :: Prefix -> BitMap -> EMS k
 tip _ 0 = Nil
 tip kx bm = Tip kx bm
 {-# INLINE tip #-}
