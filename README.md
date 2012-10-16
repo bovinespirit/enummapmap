@@ -34,7 +34,7 @@ im' = EMM.insert (K 5) "Five" im
 ```
 
 The code ensures that only the root EnumMap can be empty.  There are lazy and
-strict varients.  Both are strict in the Keys, but the strict version is strict
+strict variants.  Both are strict in the keys, but the strict version is strict
 on values as well.
 
 The keys can be split to allow operations on whole subtrees. The level of the
@@ -46,18 +46,17 @@ tree = EMM.lookup (o &: K t) $ splitKey EMM.d1 orchards
 newOrchards = joinKey $ delete (K o) $ splitKey EMM.d2 orchards
 ```
 
-In the preivious example `unsafeJoinKey` could be used instead of `joinKey` as
-there is no possiblity of an empty subtree being left.
+In the previous example `unsafeJoinKey` could be used instead of `joinKey` as
+there is no possibility of an empty subtree being left.
 
 TODO:
 
 - More documentation
 - More tests
+- EnumMapMap & EnumMapSet - elemKeys, intersectBy
 - Check that Strict really is strict and Lazy really is lazy.
-- More functions - mapMaybe, update, mergeWithKey
-- EnumMapSet
-- Optimisation - I have just copied code from IntMap, I have not checked that it
- is efficient.
+- More functions - mapMaybe, update, mergeWithKey,  foldr'
+- Optimisation
 - Benchmarks
 - Replace d1..d10 with numbers
 
