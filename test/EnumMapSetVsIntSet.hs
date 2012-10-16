@@ -166,6 +166,16 @@ main = hspec $ do
       prop "Level 3" $ \k k1 k2 ->
           runPropL3 (IS.delete k) (EMS.delete $ k :& k1 :& K k2) k1 k2
 
+    describe "map" $ do
+      let f a = a + 1
+      prop "Level 1" $
+           runPropL (IS.map f) (EMS.map (\(K k) -> K $ f k))
+      prop "Level 2" $
+           runPropL2 (IS.map f) (EMS.map (\(k :& K k1) -> f k :& K k1))
+      prop "Level 3" $
+           runPropL3 (IS.map f)
+                         (EMS.map (\(k :& k2 :& K k1) -> f k :& k2 :& K k1))
+
     describe "union" $ do
       prop "Level 1" $
            runPropDuoL1 IS.union EMS.union
@@ -173,3 +183,19 @@ main = hspec $ do
            runPropDuoL2 IS.union EMS.union
       prop "Level 3" $
            runPropDuoL3 IS.union EMS.union
+
+    describe "difference" $ do
+      prop "Level 1" $
+           runPropDuoL1 IS.difference EMS.difference
+      prop "Level 2" $
+           runPropDuoL2 IS.difference EMS.difference
+      prop "Level 3" $
+           runPropDuoL3 IS.difference EMS.difference
+
+    describe "intersection" $ do
+      prop "Level 1" $
+           runPropDuoL1 IS.intersection EMS.intersection
+      prop "Level 2" $
+           runPropDuoL2 IS.intersection EMS.intersection
+      prop "Level 3" $
+           runPropDuoL3 IS.intersection EMS.intersection

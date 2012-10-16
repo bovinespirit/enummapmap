@@ -30,6 +30,10 @@ module Data.EnumMapSet (
             delete,
             -- * Combine
             union,
+            difference,
+            intersection,
+            -- * Map
+            map,
             -- * Folds
             foldr,
             -- * Lists
@@ -45,12 +49,11 @@ import           Prelude hiding (lookup,
                                  head, tail)
 
 import           Data.Bits
+import qualified Data.List as List
 import           GHC.Exts (Word(..), Int(..))
 import           GHC.Prim (indexInt8OffAddr#)
 #include "MachDeps.h"
 
--- A lot of EnumMapMap functions will be overwritten, so we import it qualified
--- then import the internal functions unqualified to make the code neater.
 import           Data.EnumMapMap.Base ((:&)(..), K(..), EMM(..),
                                        IsEmm,
                                        EnumMapMap(..),
@@ -149,11 +152,90 @@ instance (Enum k) => IsEmm (K k) where
           go (Tip kx bm) t = insertBM kx bm t
           go Nil t = t
 
+    difference (KSC ems1) (KSC ems2) = KSC $ go ems1 ems2
+        where
+          go t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
+              | shorter m1 m2  = difference1
+              | shorter m2 m1  = difference2
+              | p1 == p2       = bin p1 m1 (go l1 l2) (go r1 r2)
+              | otherwise      = t1
+              where
+                difference1 | nomatch p2 p1 m1  = t1
+                            | zero p2 m1        = bin p1 m1 (go l1 t2) r1
+                            | otherwise         = bin p1 m1 l1 (go r1 t2)
+
+                difference2 | nomatch p1 p2 m2  = t1
+                            | zero p1 m2        = go t1 l2
+                            | otherwise         = go t1 r2
+
+          go t@(Bin _ _ _ _) (Tip kx bm) = deleteBM kx bm t
+          go t@(Bin _ _ _ _) Nil = t
+
+          go t1@(Tip kx bm) t2 = differenceTip t2
+              where differenceTip (Bin p2 m2 l2 r2)
+                        | nomatch kx p2 m2 = t1
+                        | zero kx m2 = differenceTip l2
+                        | otherwise = differenceTip r2
+                    differenceTip (Tip kx2 bm2)
+                        | kx == kx2 = tip kx (bm .&. complement bm2)
+                        | otherwise = t1
+                    differenceTip Nil = t1
+
+          go Nil _ = Nil
+
+    intersection (KSC ems1) (KSC ems2) = KSC $ go ems1 ems2
+        where
+          go t1@(Bin p1 m1 l1 r1) t2@(Bin p2 m2 l2 r2)
+              | shorter m1 m2  = intersection1
+              | shorter m2 m1  = intersection2
+              | p1 == p2       = bin p1 m1 (go l1 l2) (go r1 r2)
+              | otherwise      = Nil
+              where
+                intersection1 | nomatch p2 p1 m1  = Nil
+                              | zero p2 m1        = go l1 t2
+                              | otherwise         = go r1 t2
+
+                intersection2 | nomatch p1 p2 m2  = Nil
+                              | zero p1 m2        = go t1 l2
+                              | otherwise         = go t1 r2
+
+          go t1@(Bin _ _ _ _) (Tip kx2 bm2) = intersectBM t1
+              where intersectBM (Bin p1 m1 l1 r1)
+                        | nomatch kx2 p1 m1 = Nil
+                        | zero kx2 m1       = intersectBM l1
+                        | otherwise         = intersectBM r1
+                    intersectBM (Tip kx1 bm1)
+                        | kx1 == kx2 = tip kx1 (bm1 .&. bm2)
+                        | otherwise = Nil
+                    intersectBM Nil = Nil
+
+          go (Bin _ _ _ _) Nil = Nil
+
+          go (Tip kx1 bm1) t2 = intersectBM t2
+              where intersectBM (Bin p2 m2 l2 r2)
+                        | nomatch kx1 p2 m2 = Nil
+                        | zero kx1 m2       = intersectBM l2
+                        | otherwise         = intersectBM r2
+                    intersectBM (Tip kx2 bm2)
+                        | kx1 == kx2 = tip kx1 (bm1 .&. bm2)
+                        | otherwise = Nil
+                    intersectBM Nil = Nil
+
+          go Nil _ = Nil
+
     insertWith = undefined
     insertWithKey = undefined
+    lookup = undefined
     alter = undefined
     foldr = undefined
+    map = undefined
+    mapWithKey = undefined
     unionWith = undefined
+    unionWithKey = undefined
+    differenceWith = undefined
+    differenceWithKey = undefined
+    intersectionWith = undefined
+    intersectionWithKey = undefined
     fromList = undefined
     toList = undefined
 
@@ -192,8 +274,22 @@ foldr f = EMM.foldrWithKey go
     where
       go k _ z = f k z
 
+-- | @'map' f s@ is the set obtained by applying @f@ to each element of @s@.
+--
+-- It's worth noting that the size of the result may be smaller if,
+-- for some @(x,y)@, @x \/= y && f x == f y@
+map :: (IsEmm k1, IsEmm k2) =>
+       (k1 -> k2) -> EnumMapSet k1 -> EnumMapSet k2
+map f = fromList . List.map f . toList
+
 union :: (IsEmm k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
 union = EMM.union
+
+difference :: (IsEmm k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
+difference = EMM.difference
+
+intersection :: (IsEmm k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
+intersection = EMM.intersection
 
 {---------------------------------------------------------------------
   List
