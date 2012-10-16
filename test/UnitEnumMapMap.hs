@@ -82,7 +82,7 @@ checkSubs f l1 l2 =
 
 main :: IO ()
 main =
-  hspecX $ do
+  hspec $ do
     describe "empty" $ do
       it "creates an empty EnumMapMap" $
            (EMM.null $ (EMM.empty :: EnumMapMap (Int :& Int :& K Int) Bool))
