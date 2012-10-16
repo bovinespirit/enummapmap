@@ -36,7 +36,7 @@ Test-Suite test-enummapmap-lazy
     build-depends:    base >= 4.0 && < 5,
                       HUnit,
                       QuickCheck >= 2,
-                      hspec >= 0.9,
+                      hspec >= 1.3,
                       deepseq >= 1.2 && < 1.4,
                       enummapmap
     cpp-options:      -DTESTING -DLAZY
@@ -50,7 +50,7 @@ Test-Suite test-enummapmap-intmap-lazy
     build-depends:    base >= 4.0 && < 5,
                       HUnit,
                       QuickCheck >= 2,
-                      hspec >= 0.9,
+                      hspec >= 1.3,
                       deepseq >= 1.2 && < 1.4,
                       containers >= 0.4.2,
                       enummapmap
@@ -65,7 +65,7 @@ Test-Suite test-enummapmap-strict
     build-depends:    base >= 4.0 && < 5,
                       HUnit,
                       QuickCheck >= 2,
-                      hspec >= 0.9,
+                      hspec >= 1.3,
                       deepseq >= 1.2 && < 1.4,
                       enummapmap
     cpp-options:      -DTESTING -DSTRICT
@@ -79,7 +79,7 @@ Test-Suite test-enummapmap-intmap-strict
     build-depends:    base >= 4.0 && < 5,
                       HUnit,
                       QuickCheck >= 2,
-                      hspec >= 0.9,
+                      hspec >= 1.3,
                       deepseq >= 1.2 && < 1.4,
                       containers >= 0.4.2,
                       enummapmap

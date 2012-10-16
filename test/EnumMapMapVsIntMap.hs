@@ -207,7 +207,7 @@ runPropDuoL4 f g k1 k2 k3 =
                     (\a b -> EMM.toList $ g a b) k1 k2 k3
 
 main :: IO ()
-main = hspecX $ do
+main = hspec $ do
     describe "toList fromList" $ do
         prop "Level 1" $
              runPropL id id
