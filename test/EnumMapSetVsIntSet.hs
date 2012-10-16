@@ -199,3 +199,19 @@ main = hspec $ do
            runPropDuoL2 IS.intersection EMS.intersection
       prop "Level 3" $
            runPropDuoL3 IS.intersection EMS.intersection
+
+    describe "equals" $ do
+      prop "Level 1" $
+           runPropDuo1 (==) (==)
+      prop "Level 2" $
+           runPropDuo2 (==) (==)
+      prop "Level 3" $
+           runPropDuo3 (==) (==)
+
+    describe "nequals" $ do
+      prop "Level 1" $
+           runPropDuo1 (/=) (/=)
+      prop "Level 2" $
+           runPropDuo2 (/=) (/=)
+      prop "Level 3" $
+           runPropDuo3 (/=) (/=)

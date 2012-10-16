@@ -56,11 +56,11 @@ import           GHC.Prim (indexInt8OffAddr#)
 
 import           Data.EnumMapMap.Base ((:&)(..), K(..), EMM(..),
                                        IsEmm,
-                                       EnumMapMap(..),
-                                       Prefix, Mask, Key, Nat,
+                                       EnumMapMap,
+                                       Prefix, Nat,
                                        intFromNat, bin,
                                        shiftRL, shiftLL,
-                                       match, nomatch, zero,
+                                       nomatch, zero,
                                        join, shorter,
                                        foldlStrict)
 import qualified Data.EnumMapMap.Base as EMM
@@ -223,6 +223,24 @@ instance (Enum k) => IsEmm (K k) where
 
           go Nil _ = Nil
 
+    equal (KSC ems1) (KSC ems2) = go ems1 ems2
+        where
+          go (Bin p1 m1 l1 r1) (Bin p2 m2 l2 r2)
+              = (m1 == m2) && (p1 == p2) && (go l1 l2) && (go r1 r2)
+          go (Tip kx1 bm1) (Tip kx2 bm2)
+              = kx1 == kx2 && bm1 == bm2
+          go Nil Nil = True
+          go _   _   = False
+
+    nequal (KSC ems1) (KSC ems2) = go ems1 ems2
+        where
+          go (Bin p1 m1 l1 r1) (Bin p2 m2 l2 r2)
+              = (m1 /= m2) || (p1 /= p2) || (go l1 l2) || (go r1 r2)
+          go (Tip kx1 bm1) (Tip kx2 bm2)
+              = kx1 /= kx2 || bm1 /= bm2
+          go Nil Nil = False
+          go _   _   = True
+
     insertWith = undefined
     insertWithKey = undefined
     lookup = undefined
@@ -303,6 +321,10 @@ toList :: IsEmm k => EnumMapSet k -> [k]
 toList = foldr (:) []
 
 {---------------------------------------------------------------------
+  Instances
+---------------------------------------------------------------------}
+
+{---------------------------------------------------------------------
   Helper functions
 ---------------------------------------------------------------------}
 
@@ -375,19 +397,6 @@ bitcount a0 x0 = go a0 x0
         go a x = go (a + 1) (x .&. (x-1))
 {-# INLINE bitcount #-}
 
-highestBitMask :: Nat -> Nat
-highestBitMask x0
-  = case (x0 .|. shiftRL x0 1) of
-     x1 -> case (x1 .|. shiftRL x1 2) of
-      x2 -> case (x2 .|. shiftRL x2 4) of
-       x3 -> case (x3 .|. shiftRL x3 8) of
-        x4 -> case (x4 .|. shiftRL x4 16) of
-#if !(defined(__GLASGOW_HASKELL__) && WORD_SIZE_IN_BITS==32)
-         x5 -> case (x5 .|. shiftRL x5 32) of   -- for 64 bit platforms
-#endif
-          x6 -> (x6 `xor` (shiftRL x6 1))
-{-# INLINE highestBitMask #-}
-
 {----------------------------------------------------------------------
   Folds over a BitMap.
 
@@ -395,19 +404,9 @@ highestBitMask x0
   Data/IntSet/Base.hs in 'containers 5.0'.
 ----------------------------------------------------------------------}
 
-lowestBitSet :: Nat -> Int
-highestBitSet :: Nat -> Int
-foldlBits :: Int -> (a -> Int -> a) -> a -> Nat -> a
-foldl'Bits :: Int -> (a -> Int -> a) -> a -> Nat -> a
 foldrBits :: Int -> (Int -> a -> a) -> a -> Nat -> a
-foldr'Bits :: Int -> (Int -> a -> a) -> a -> Nat -> a
 
-{-# INLINE lowestBitSet #-}
-{-# INLINE highestBitSet #-}
-{-# INLINE foldlBits #-}
-{-# INLINE foldl'Bits #-}
 {-# INLINE foldrBits #-}
-{-# INLINE foldr'Bits #-}
 
 indexOfTheOnlyBit :: Nat -> Int
 {-# INLINE indexOfTheOnlyBit #-}
@@ -443,32 +442,8 @@ revNat x1 = case ((x1 `shiftRL` 1) .&. 0x5555555555555555) .|. ((x1 .&. 0x555555
                      x5 -> case ((x5 `shiftRL` 16) .&. 0x0000FFFF0000FFFF) .|. ((x5 .&. 0x0000FFFF0000FFFF) `shiftLL` 16) of
                        x6 -> ( x6 `shiftRL` 32             ) .|. ( x6               `shiftLL` 32);
 #endif
-
-lowestBitSet x = indexOfTheOnlyBit (lowestBitMask x)
-
-highestBitSet x = indexOfTheOnlyBit (highestBitMask x)
-
-foldlBits prefix f z bitmap = go bitmap z
-  where go bm acc | bm == 0 = acc
-                  | otherwise = case lowestBitMask bm of
-                                  bitmask -> bitmask `seq` case indexOfTheOnlyBit bitmask of
-                                    bi -> bi `seq` go (bm `xor` bitmask) ((f acc) $! (prefix+bi))
-
-foldl'Bits prefix f z bitmap = go bitmap z
-  where go bm !acc | bm == 0 = acc
-                   | otherwise = case lowestBitMask bm of
-                                  bitmask -> bitmask `seq` case indexOfTheOnlyBit bitmask of
-                                    bi -> bi `seq` go (bm `xor` bitmask) ((f acc) $! (prefix+bi))
-
 foldrBits prefix f z bitmap = go (revNat bitmap) z
   where go bm acc | bm == 0 = acc
                   | otherwise = case lowestBitMask bm of
                                   bitmask -> bitmask `seq` case indexOfTheOnlyBit bitmask of
                                     bi -> bi `seq` go (bm `xor` bitmask) ((f $! (prefix+(WORD_SIZE_IN_BITS-1)-bi)) acc)
-
-foldr'Bits prefix f z bitmap = go (revNat bitmap) z
-  where go bm !acc | bm == 0 = acc
-                   | otherwise = case lowestBitMask bm of
-                                  bitmask -> bitmask `seq` case indexOfTheOnlyBit bitmask of
-                                    bi -> bi `seq` go (bm `xor` bitmask) ((f $! (prefix+(WORD_SIZE_IN_BITS-1)-bi)) acc)
-
