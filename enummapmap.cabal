@@ -20,7 +20,7 @@ source-repository head
 Library
    exposed-modules: Data.EnumMapMap.Lazy, Data.EnumMapMap.Strict,
                     Data.EnumMapSet
-   other-modules:   Data.EnumMapMap.Base
+   other-modules:   Data.EnumMapMap.Base, Data.EnumMapSet.Base
    build-depends:   base >= 4.0 && < 5,
                     deepseq >= 1.2 && < 1.4,
                     ghc-prim

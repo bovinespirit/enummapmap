@@ -9,7 +9,6 @@
 --                (c) Andriy Palamarchuk 2008
 --                (c) Matthew West 2012
 -- License     :  BSD-style
--- Maintainer  :
 -- Stability   :  experimental
 -- Portability :  Uses GHC extensions
 --
