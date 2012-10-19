@@ -63,6 +63,8 @@ module Data.EnumMapMap.Lazy (
             -- * Lists
             toList,
             fromList,
+            keys,
+            elems,
             -- * Split/Join Keys
             splitKey,
             joinKey,

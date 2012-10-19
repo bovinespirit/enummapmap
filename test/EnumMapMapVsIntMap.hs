@@ -417,3 +417,23 @@ main = hspec $ do
              runPropDuoL4 (IM.intersectionWithKey f)
                              (EMM.intersectionWithKey
                                      (\(k :& _ :& _ :& K _) a b -> f k a b))
+
+    describe "keys" $ do
+        prop "Level 1" $
+             runProp (IM.keys) (map (\(K k) -> k) . EMM.keys)
+        prop "Level 2" $
+             runProp2 (IM.keys) (map (\(k :& _) -> k) . EMM.keys)
+        prop "Level 3" $
+             runProp3 (IM.keys) (map (\(k :& _) -> k) . EMM.keys)
+        prop "Level 4" $
+             runProp4 (IM.keys) (map (\(k :& _) -> k) . EMM.keys)
+
+    describe "elems" $ do
+        prop "Level 1" $
+             runProp (IM.elems) (EMM.elems)
+        prop "Level 2" $
+             runProp2 (IM.elems) (EMM.elems)
+        prop "Level 3" $
+             runProp3 (IM.elems) (EMM.elems)
+        prop "Level 4" $
+             runProp4 (IM.elems) (EMM.elems)

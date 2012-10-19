@@ -64,6 +64,8 @@ module Data.EnumMapMap.Strict (
             -- * Lists
             toList,
             fromList,
+            keys,
+            elems,
             -- * Split/Join Keys
             splitKey,
             joinKey,

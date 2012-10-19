@@ -246,6 +246,12 @@ class IsEmm k where
     -- | Create a 'EnumMapMap' from a list of key\/value pairs.
     fromList :: [(k, v)] -> EnumMapMap k v
     fromList = foldlStrict (\t (k, x) -> insert k x t) empty
+    -- | List of elements in ascending order of keys
+    elems :: EnumMapMap k v -> [v]
+    elems = foldr (:) []
+    -- | List of keys
+    keys :: EnumMapMap k v -> [k]
+    keys = foldrWithKey (\k _ ks -> k:ks) []
     -- | The (left-biased) union of two 'EnumMapMap's.
     -- It prefers the first 'EnumMapMap' when duplicate keys are encountered.
     union :: EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v

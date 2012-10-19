@@ -39,6 +39,7 @@ module Data.EnumMapSet.Base (
             -- * Lists
             toList,
             fromList,
+            keys,
             -- * Internals
             suffixBitMask,
             prefixBitMask,
@@ -277,6 +278,7 @@ instance (Enum k) => IsEmm (K k) where
     intersectionWithKey = undefined
     fromList = undefined
     toList = undefined
+    elems = undefined
 
 {---------------------------------------------------------------------
   Exported API
@@ -331,7 +333,7 @@ intersection :: (IsEmm k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
 intersection = EMM.intersection
 
 {---------------------------------------------------------------------
-  List
+  Lists
 ---------------------------------------------------------------------}
 
 fromList :: IsEmm k => [k] -> EnumMapSet k
@@ -340,6 +342,9 @@ fromList xs
 
 toList :: IsEmm k => EnumMapSet k -> [k]
 toList = foldr (:) []
+
+keys :: IsEmm k => EnumMapSet k -> [k]
+keys = toList
 
 {---------------------------------------------------------------------
   Instances
