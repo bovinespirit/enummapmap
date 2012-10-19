@@ -33,9 +33,9 @@ im = EMM.singleton (K 3) "Three"
 im' = EMM.insert (K 5) "Five" im
 ```
 
-The code ensures that only the root EnumMap can be empty.  There are lazy and
-strict variants.  Both are strict in the keys, but the strict version is strict
-on values as well.
+The code ensures that only the root EnumMap can be empty.  There are lazy and strict variants.  Both are strict in the
+keys, but the strict version is strict on values as well.  The data structures are the same however the key types are
+different for the strict and lazy versions so strict operations can be performed on a lazy EnumMapMap.
 
 The keys can be split to allow operations on whole subtrees. The level of the
 split is defined by a type.  These types range from `d1` to `d10`.
@@ -52,8 +52,9 @@ there is no possibility of an empty subtree being left.
 TODO:
 
 - More documentation
+- Document EnumMapSet, especially 'S'
 - More tests
-- EnumMapMap & EnumMapSet - elemKeys, intersectBy
+- EnumMapMap & EnumMapSet - intersectBy
 - Check that Strict really is strict and Lazy really is lazy.
 - More functions - mapMaybe, update, mergeWithKey,  foldr'
 - Optimisation
