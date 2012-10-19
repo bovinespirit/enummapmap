@@ -65,7 +65,10 @@ module Data.EnumMapMap.Lazy (
             fromList,
             keys,
             elems,
+            keysSet,
             -- * Split/Join Keys
+            toK,
+            toS,
             splitKey,
             joinKey,
             unsafeJoinKey
@@ -74,8 +77,10 @@ module Data.EnumMapMap.Lazy (
 import           Prelude hiding (lookup,map,filter,foldr,foldl,null,init)
 
 import           Control.DeepSeq (NFData(rnf))
+import           Data.Bits
 
 import           Data.EnumMapMap.Base
+import qualified Data.EnumMapSet.Base as EMS
 
 -- | Keys are terminated with the 'K' type
 --
@@ -85,7 +90,7 @@ import           Data.EnumMapMap.Base
 newtype K k = K k
            deriving (Show, Eq)
 
-instance (Enum k) => IsEmm (K k) where
+instance (Enum k, Eq k) => IsEmm (K k) where
     data EnumMapMap (K k) v = KEC (EMM k v)
 
     emptySubTrees e@(KEC emm) =
@@ -207,6 +212,18 @@ instance (Enum k) => IsEmm (K k) where
           go z' (Tip _ x)     = f x z'
           go z' (Bin _ _ l r) = go (go z' r) l
     foldrWithKey f init (KEC emm) = foldrWithKey_ (\k -> f $ K k) init emm
+    keysSet (KEC emm) = EMS.KSC $ go emm
+        where
+          go Nil        = EMS.Nil
+          go (Tip kx _) = EMS.Tip (EMS.prefixOf kx) (EMS.bitmapOf kx)
+          go (Bin p m l r)
+              | m .&. EMS.suffixBitMask == 0 = EMS.Bin p m (go l) (go r)
+              | otherwise = EMS.Tip (p .&. EMS.prefixBitMask)
+                            (computeBm (computeBm 0 l) r)
+              where
+                computeBm !acc (Bin _ _ l' r') = computeBm (computeBm acc l') r'
+                computeBm !acc (Tip kx _)      = acc .|. EMS.bitmapOf kx
+                computeBm !acc Nil             = acc
 
     union (KEC emm1) (KEC emm2) = KEC $ mergeWithKey' Bin const id id emm1 emm2
     unionWithKey f (KEC emm1) (KEC emm2) =
@@ -249,6 +266,11 @@ instance NFData v => NFData (EnumMapMap (K k) v) where
           go Nil           = ()
           go (Tip _ v)     = rnf v
           go (Bin _ _ l r) = go l `seq` go r
+
+instance HasSKey (K k) where
+    type Skey (K k) = EMS.S k
+    toS (K !k) = EMS.S k
+    toK (EMS.S !k) = K k
 
 {---------------------------------------------------------------------
  Split/Join Keys

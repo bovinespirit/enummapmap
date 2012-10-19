@@ -10,21 +10,21 @@ import           Test.QuickCheck ()
 
 import qualified Data.IntSet as IS
 
-import           Data.EnumMapSet(EnumMapSet, (:&)(..), K(..))
+import           Data.EnumMapSet(EnumMapSet, (:&)(..), S(..))
 import qualified Data.EnumMapSet as EMS
 
-type TestSet1 = EnumMapSet (K Int)
-type TestSet2 = EnumMapSet (Int :& K Int)
-type TestSet3 = EnumMapSet (Int :& Int :& K Int)
+type TestSet1 = EnumMapSet (S Int)
+type TestSet2 = EnumMapSet (Int :& S Int)
+type TestSet3 = EnumMapSet (Int :& Int :& S Int)
 
-list2l1 :: [Int] -> [K Int]
-list2l1 = map (\k -> K k)
+list2l1 :: [Int] -> [S Int]
+list2l1 = map (\k -> S k)
 
-list2l2 :: Int -> [Int] -> [Int :& K Int]
-list2l2 k1 = map (\k -> k :& K k1)
+list2l2 :: Int -> [Int] -> [Int :& S Int]
+list2l2 k1 = map (\k -> k :& S k1)
 
-list2l3 :: Int -> Int -> [Int] -> [Int :& Int :& K Int]
-list2l3 k1 k2 = map (\k -> k :& k1 :& K k2)
+list2l3 :: Int -> Int -> [Int] -> [Int :& Int :& S Int]
+list2l3 k1 k2 = map (\k -> k :& k1 :& S k2)
 
 runProp :: Eq t =>
            (IS.IntSet -> t)
@@ -152,29 +152,29 @@ main = hspec $ do
 
     describe "insert" $ do
       prop "Level 1" $ \k ->
-          runPropL (IS.insert k) (EMS.insert $ K k)
+          runPropL (IS.insert k) (EMS.insert $ S k)
       prop "Level 2" $ \k k1 ->
-          runPropL2 (IS.insert k) (EMS.insert $ k :& K k1) k1
+          runPropL2 (IS.insert k) (EMS.insert $ k :& S k1) k1
       prop "Level 3" $ \k k1 k2 ->
-          runPropL3 (IS.insert k) (EMS.insert $ k :& k1 :& K k2) k1 k2
+          runPropL3 (IS.insert k) (EMS.insert $ k :& k1 :& S k2) k1 k2
 
     describe "delete" $ do
       prop "Level 1" $ \k ->
-          runPropL (IS.delete k) (EMS.delete $ K k)
+          runPropL (IS.delete k) (EMS.delete $ S k)
       prop "Level 2" $ \k k1 ->
-          runPropL2 (IS.delete k) (EMS.delete $ k :& K k1) k1
+          runPropL2 (IS.delete k) (EMS.delete $ k :& S k1) k1
       prop "Level 3" $ \k k1 k2 ->
-          runPropL3 (IS.delete k) (EMS.delete $ k :& k1 :& K k2) k1 k2
+          runPropL3 (IS.delete k) (EMS.delete $ k :& k1 :& S k2) k1 k2
 
     describe "map" $ do
       let f a = a + 1
       prop "Level 1" $
-           runPropL (IS.map f) (EMS.map (\(K k) -> K $ f k))
+           runPropL (IS.map f) (EMS.map (\(S k) -> S $ f k))
       prop "Level 2" $
-           runPropL2 (IS.map f) (EMS.map (\(k :& K k1) -> f k :& K k1))
+           runPropL2 (IS.map f) (EMS.map (\(k :& S k1) -> f k :& S k1))
       prop "Level 3" $
            runPropL3 (IS.map f)
-                         (EMS.map (\(k :& k2 :& K k1) -> f k :& k2 :& K k1))
+                         (EMS.map (\(k :& k2 :& S k1) -> f k :& k2 :& S k1))
 
     describe "union" $ do
       prop "Level 1" $

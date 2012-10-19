@@ -7,6 +7,7 @@ import           Test.Hspec.Monadic
 import           Test.Hspec.QuickCheck (prop)
 import           Test.HUnit
 import           Test.QuickCheck (Arbitrary, arbitrary, shrink)
+import qualified Data.EnumMapSet as EMS
 
 #ifdef LAZY
 import           Data.EnumMapMap.Lazy(EnumMapMap, (:&)(..), K(..))
@@ -25,11 +26,11 @@ instance (Arbitrary a) => Arbitrary (K a) where
     arbitrary = liftM K arbitrary
 
 newtype ID1 = ID1 Int
-    deriving (Show, Enum, Arbitrary)
+    deriving (Show, Enum, Arbitrary, Eq)
 newtype ID2 = ID2 Int
-    deriving (Show, Enum, Arbitrary)
+    deriving (Show, Enum, Arbitrary, Eq)
 newtype ID3 = ID3 Int
-    deriving (Show, Enum, Arbitrary)
+    deriving (Show, Enum, Arbitrary, Eq)
 
 type TestKey3 = ID3 :& ID2 :& K ID1
 type TestEmm3 = EnumMapMap TestKey3 Int
@@ -246,4 +247,13 @@ main =
             go32 l = emm == (EMM.joinKey $ EMM.splitKey EMM.d2 emm)
                 where emm = EMM.fromList l
         prop "Level 3, depth = 2" go32
+
+      describe "keysSet" $ do
+        describe "produces same result as keys" $ do
+          let gol1 :: [(K Int, Int)] -> Bool
+              gol1 list = EMM.keys emm == (map EMM.toK $ EMS.toList $ EMM.keysSet emm)
+                  where
+                    emm = EMM.fromList list
+          prop "Level 1" gol1
+
 

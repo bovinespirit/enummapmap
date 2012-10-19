@@ -12,13 +12,13 @@
 -- Stability   :  experimental
 -- Portability :  Uses GHC extensions
 --
--- Based on Data.IntSet.Base.hs
+-- Based on Data.IntSet.Base
 --
 -----------------------------------------------------------------------------
 
 module Data.EnumMapSet.Base (
             EnumMapSet,
-            K(..), (:&)(..),
+            S(..), (:&)(..),
             -- * Query
             null,
             size,
@@ -41,9 +41,12 @@ module Data.EnumMapSet.Base (
             fromList,
             keys,
             -- * Internals
+            EMS(..),
+            EnumMapMap(KSC),
             suffixBitMask,
             prefixBitMask,
-            bitmapOf
+            bitmapOf,
+            prefixOf
 ) where
 
 import           Prelude hiding (lookup,
@@ -75,12 +78,12 @@ type EnumMapSet k = EnumMapMap k ()
 
 type BitMap = Word
 
--- | Keys are terminated with the 'K' type
+-- | Keys are terminated with the 'S' type.
 --
--- > singleKey :: K Int
--- > singleKey = K 5
+-- > singleKey :: S Int
+-- > singleKey = S 5
 --
-newtype K k = K k
+newtype S k = S k
            deriving (Show, Eq)
 
 -- This is used instead of @EMM k BitMap@ in order to unpack the 'BitMap' in
@@ -91,8 +94,8 @@ data EMS k = Bin {-# UNPACK #-} !Prefix {-# UNPACK #-} !Mask
            | Nil
              deriving (Show)
 
-instance (Enum k) => IsEmm (K k) where
-    data EnumMapMap (K k) v = KSC (EMS k)
+instance (Enum k, Eq k) => IsEmm (S k) where
+    data EnumMapMap (S k) v = KSC (EMS k)
 
     emptySubTrees e@(KSC emm) =
         case emm of
@@ -121,7 +124,7 @@ instance (Enum k) => IsEmm (K k) where
           go (Tip _ bm)    = bitcount 0 bm
           go Nil           = 0
 
-    member !(K key') (KSC ems) = key `seq` go ems
+    member !(S key') (KSC ems) = key `seq` go ems
         where
           go (Bin p m l r)
               | nomatch key p m = False
@@ -131,15 +134,15 @@ instance (Enum k) => IsEmm (K k) where
           go Nil = False
           key = fromEnum key'
 
-    singleton (K key') _
+    singleton (S key') _
         = key `seq` KSC $ Tip (prefixOf key) (bitmapOf key)
           where key = fromEnum key'
 
-    insert (K key') _ (KSC ems)
+    insert (S key') _ (KSC ems)
         = key `seq` KSC $ insertBM (prefixOf key) (bitmapOf key) ems
           where key = fromEnum key'
 
-    delete (K key') (KSC ems)
+    delete (S key') (KSC ems)
         = key `seq` KSC $ deleteBM (prefixOf key) (bitmapOf key) ems
           where key = fromEnum key'
 
@@ -151,7 +154,7 @@ instance (Enum k) => IsEmm (K k) where
             go init' Nil           = init'
             go init' (Tip kx bm)   = foldrBits kx f' init' bm
             go init' (Bin _ _ l r) = go (go init' r) l
-            f' !k t = f (K $ toEnum k) undefined t
+            f' !k t = f (S $ toEnum k) undefined t
 
     union (KSC ems1) (KSC ems2) = KSC $ go ems1 ems2
         where
@@ -279,6 +282,7 @@ instance (Enum k) => IsEmm (K k) where
     fromList = undefined
     toList = undefined
     elems = undefined
+    keysSet = undefined
 
 {---------------------------------------------------------------------
   Exported API
@@ -349,6 +353,11 @@ keys = toList
 {---------------------------------------------------------------------
   Instances
 ---------------------------------------------------------------------}
+
+instance EMM.HasSKey (S k) where
+    type Skey (S k) = S k
+    toS (S _) = undefined
+    toK (S _) = undefined
 
 {---------------------------------------------------------------------
   Helper functions

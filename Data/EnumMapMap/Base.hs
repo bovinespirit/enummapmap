@@ -31,6 +31,8 @@ module Data.EnumMapMap.Base(
             EMM(..),
             IsEmm(..),
             EnumMapMap(..),
+            -- ** SKey
+            HasSKey(..),
             -- ** EMM internals
             mergeWithKey',
             mapWithKey_,
@@ -148,7 +150,17 @@ instance (IsSplit t n, Enum k) => IsSplit (k :& t) (N n) where
 type family Plus k1 k2 :: *
 type instance Plus (k1 :& t) k2 = k1 :& (Plus t k2)
 
-class IsEmm k where
+class HasSKey k where
+    type Skey k :: *
+    toS :: k -> (Skey k)
+    toK :: (Skey k) -> k
+
+instance (HasSKey t) => HasSKey (k :& t) where
+    type Skey (k :& t) = k :& (Skey t)
+    toS (k :& t) = (:&) k $! (toS t)
+    toK (k :& t) = (:&) k $! (toK t)
+
+class (Eq k) => IsEmm k where
     -- | A map of keys to values.  The keys are 'Enum' types but are stored as 'Int's
     -- so any keys with the same 'Int' value are treated as the same.  The aim is to
     -- provide typesafe indexing.
@@ -252,6 +264,8 @@ class IsEmm k where
     -- | List of keys
     keys :: EnumMapMap k v -> [k]
     keys = foldrWithKey (\k _ ks -> k:ks) []
+    -- | The 'EnumMapSet' of the keys
+    keysSet :: (HasSKey k) => EnumMapMap k v -> EnumMapMap (Skey k) ()
     -- | The (left-biased) union of two 'EnumMapMap's.
     -- It prefers the first 'EnumMapMap' when duplicate keys are encountered.
     union :: EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
@@ -297,8 +311,7 @@ class IsEmm k where
     equal ::  Eq v => EnumMapMap k v -> EnumMapMap k v -> Bool
     nequal :: Eq v => EnumMapMap k v -> EnumMapMap k v -> Bool
 
-
-instance (Enum k, IsEmm t) => IsEmm (k :& t) where
+instance (Eq k, Enum k, IsEmm t, HasSKey t) => IsEmm (k :& t) where
     data EnumMapMap (k :& t) v = KCC (EMM k (EnumMapMap t v))
 
     emptySubTrees e@(KCC emm) =
@@ -382,6 +395,8 @@ instance (Enum k, IsEmm t) => IsEmm (k :& t) where
     foldrWithKey f init (KCC emm) = foldrWithKey_ go init emm
         where
           go k val z = foldrWithKey (\nxt -> f $ k :& nxt) z val
+
+    keysSet (KCC emm) = KCC $ mapWithKey_ (\_ -> keysSet) emm
 
     union (KCC emm1) (KCC emm2) = KCC $ mergeWithKey' binD go id id emm1 emm2
         where

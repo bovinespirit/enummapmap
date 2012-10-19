@@ -16,7 +16,7 @@
 
 module Data.EnumMapSet (
             EnumMapSet,
-            K(..), (:&)(..),
+            S(..), (:&)(..),
             -- * Query
             EMS.null,
             size,
@@ -36,7 +36,8 @@ module Data.EnumMapSet (
             EMS.foldr,
             -- * Lists
             toList,
-            fromList
+            fromList,
+            keys
 ) where
 
 import Data.EnumMapSet.Base as EMS
