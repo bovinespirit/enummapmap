@@ -1,6 +1,6 @@
 {-# LANGUAGE MagicHash, TypeFamilies, MultiParamTypeClasses,
     BangPatterns, FlexibleInstances, TypeOperators,
-    FlexibleContexts #-}
+    FlexibleContexts, GeneralizedNewtypeDeriving #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -21,7 +21,7 @@
 
 module Data.EnumMapMap.Base(
             -- * Key types
-            (:&)(..), K(..), N(..), Z(..),
+            (:&)(..), N(..), Z(..),
             d1, d2, d3, d4, d5, d6, d7, d8, d9, d10,
             -- * Split/Join Keys
             IsSplit(..),
@@ -86,15 +86,9 @@ infixr 3 :&
 --
 data k :& t = !k :& !t
                    deriving (Show, Eq)
--- | Keys are terminated with the 'K' type
---
--- > singleKey :: K Int
--- > singleKey = K 5
---
-data K k = K !k
-           deriving (Show, Eq)
+
 data Z = Z
-data N n = N n
+data N n = N !n
 
 -- | Split after 1 key.
 --

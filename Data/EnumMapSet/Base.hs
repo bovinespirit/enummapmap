@@ -1,4 +1,5 @@
-{-# LANGUAGE BangPatterns, CPP, MagicHash, TypeFamilies #-}
+{-# LANGUAGE BangPatterns, CPP, GeneralizedNewtypeDeriving, MagicHash,
+  TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
@@ -57,7 +58,7 @@ import           GHC.Exts (Word(..), Int(..))
 import           GHC.Prim (indexInt8OffAddr#)
 #include "MachDeps.h"
 
-import           Data.EnumMapMap.Base ((:&)(..), K(..),
+import           Data.EnumMapMap.Base ((:&)(..),
                                        IsEmm,
                                        EnumMapMap,
                                        Prefix, Nat, Mask,
@@ -72,6 +73,14 @@ import qualified Data.EnumMapMap.Base as EMM
 type EnumMapSet k = EnumMapMap k ()
 
 type BitMap = Word
+
+-- | Keys are terminated with the 'K' type
+--
+-- > singleKey :: K Int
+-- > singleKey = K 5
+--
+newtype K k = K k
+           deriving (Show, Eq)
 
 -- This is used instead of @EMM k BitMap@ in order to unpack the 'BitMap' in
 -- 'Tip'. Hopefully this will lead to much optimisation by GHC.

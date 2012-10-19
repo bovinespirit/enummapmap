@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP, MagicHash, TypeFamilies, TypeOperators, BangPatterns,
-             FlexibleInstances, MultiParamTypeClasses #-}
+             FlexibleInstances, MultiParamTypeClasses,
+             GeneralizedNewtypeDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
@@ -73,6 +74,14 @@ import           Prelude hiding (lookup,map,filter,foldr,foldl,null,init)
 import           Control.DeepSeq (NFData(rnf))
 
 import           Data.EnumMapMap.Base
+
+-- | Keys are terminated with the 'K' type
+--
+-- > singleKey :: K Int
+-- > singleKey = K 5
+--
+newtype K k = K k
+           deriving (Show, Eq)
 
 instance (Enum k) => IsEmm (K k) where
     data EnumMapMap (K k) v = KEC (EMM k v)
