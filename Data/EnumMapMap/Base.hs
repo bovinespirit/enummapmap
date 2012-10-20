@@ -14,8 +14,8 @@
 --
 -- Based on Data.IntMap.Base.
 --
--- This defines the EnumMapMap (k :& t) v instance, and the Key data types.  The
--- terminating key type is K, and the EnumMapMap (K k) v instances are defined
+-- This defines the @'EnumMapMap' (k ':&' t) v@ instance, and the Key data types.  The
+-- terminating key type is K, and the @'EnumMapMap' (K k) v@ instances are defined
 -- in EnumMapMap.Lazy and EnumMapMap.Strict.
 -----------------------------------------------------------------------------
 
@@ -26,6 +26,7 @@ module Data.EnumMapMap.Base(
             -- * Split/Join Keys
             IsSplit(..),
             Plus,
+            CanSplit(..),
             -- * Internal
             -- ** IsEMM
             EMM(..),
@@ -150,6 +151,38 @@ instance (IsSplit t n, Enum k) => IsSplit (k :& t) (N n) where
 type family Plus k1 k2 :: *
 type instance Plus (k1 :& t) k2 = k1 :& Plus t k2
 
+class CanSplit k1 k2 v where
+    type Result k1 k2 v :: *
+    -- | Lookup up the value at a key in the 'EnumMapMap'.
+    --
+    -- > emm = fromList [(3 :& K 1, "a")]
+    -- > lookup (3 :& K 1) emm == Just "a"
+    -- > lookup (2 :& K 1) emm == Nothing
+    --
+    -- If the given key has less dimensions then the 'EnumMapMap' then a submap
+    -- is returned.
+    --
+    -- > emm2 = fromList [(3 :& 2 :& K 1, "a"), (3 :& 2 :& K 4, "a")]
+    -- > lookup (3 :& K 2) emm2 == Just $ fromList [(K 1, "a"), (K 4, "a")]
+    --
+    lookup :: (IsEmm k1, IsEmm k2) =>
+                k1 -> EnumMapMap k2 v -> Maybe (Result k1 k2 v)
+
+instance (Enum k, IsEmm t1, IsEmm t2, CanSplit t1 t2 v) =>
+    CanSplit (k :& t1) (k :& t2) v where
+    type Result (k :& t1) (k :& t2) v = Result t1 t2 v
+    lookup (key' :& nxt) (KCC emm) = key `seq` go emm
+        where
+          go (Bin _ m l r)
+             | zero key m = go l
+             | otherwise = go r
+          go (Tip kx x)
+             = case kx == key of
+                 True -> lookup nxt x
+                 False -> Nothing
+          go Nil = Nothing
+          key = fromEnum key'
+
 class HasSKey k where
     type Skey k :: *
     -- | Convert a key terminated with 'K' into one terminated with 'S'.
@@ -229,13 +262,6 @@ class (Eq k) => IsEmm k where
     --
     -- > singleton (5 :& K 3) "a" == fromList [(5 :& K 3, "a")]
     singleton :: k -> v -> EnumMapMap k v
-    -- | Lookup up the value at a key in the 'EnumMapMap'.
-    --
-    -- > emm = fromList [(3 :& K 1, "a")]
-    -- > lookup (3 :& K 1) emm == Just "a"
-    -- > lookup (2 :& K 1) emm == Nothing
-    --
-    lookup :: k -> EnumMapMap k v -> Maybe v
     -- | Insert a new key\/value pair into the 'EnumMapMap'.
     insert :: k -> v -> EnumMapMap k v -> EnumMapMap k v
     -- | Insert with a combining function.
@@ -371,17 +397,6 @@ instance (Eq k, Enum k, IsEmm t, HasSKey t) => IsEmm (k :& t) where
           key = fromEnum key'
 
     singleton (key :& nxt) = KCC . Tip (fromEnum key) . singleton nxt
-
-    lookup (key :& nxt) (KCC emm) = go emm
-        where
-          go (Bin _ m l r)
-              | zero (fromEnum key) m = go l
-              | otherwise = go r
-          go (Tip kx x)
-             = case kx == fromEnum key of
-                 True -> lookup nxt x
-                 False -> Nothing
-          go Nil = Nothing
 
     insert (key :& nxt) val (KCC emm)
         = KCC $ insertWith_ (insert nxt val) key (singleton nxt val) emm

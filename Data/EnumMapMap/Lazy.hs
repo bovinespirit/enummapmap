@@ -145,18 +145,6 @@ instance (Enum k, Eq k) => IsEmm (K k) where
 
     singleton !(K key) = KEC . Tip (fromEnum key)
 
-    lookup !(K key') (KEC emm) = go emm
-        where
-          go (Bin _ m l r)
-              | zero key m = go l
-              | otherwise = go r
-          go (Tip kx x)
-             = case kx == key of
-                 True -> Just x
-                 False -> Nothing
-          go Nil = Nothing
-          key = fromEnum key'
-
     insert !(K key') val (KEC emm) = KEC $ go emm
         where
           go t = case t of
@@ -295,3 +283,32 @@ instance IsSplit (k :& t) Z where
     type Head (k :& t) Z = K k
     type Tail (k :& t) Z = t
     splitKey Z (KCC emm) = KEC $ emm
+
+instance (Enum k1, k1 ~ k2) => CanSplit (K k1) (k2 :& t2) v where
+    type Result (K k1) (k2 :& t2) v = EnumMapMap t2 v
+    lookup (K key') (KCC emm) = key `seq` go emm
+        where
+          go (Bin _ m l r)
+             | zero key m = go l
+             | otherwise = go r
+          go (Tip kx x)
+             = case kx == key of
+                 True -> Just x
+                 False -> Nothing
+          go Nil = Nothing
+          key = fromEnum key'
+
+instance (Enum k) => CanSplit (K k) (K k) v where
+    type Result (K k) (K k) v = v
+    lookup (K key') (KEC emm) = key `seq` go emm
+        where
+          go (Bin _ m l r)
+             | zero key m = go l
+             | otherwise = go r
+          go (Tip kx x)
+             = case kx == key of
+                 True -> Just x
+                 False -> Nothing
+          go Nil = Nothing
+          key = fromEnum key'
+

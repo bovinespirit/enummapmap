@@ -96,6 +96,27 @@ main =
       it "is the inverse of toList on 2 levels" $
            (EMM.fromList $ EMM.toList l2odds) @?= l2odds
 
+    describe "lookup" $ do
+      let emm3 :: TestEmm3
+          emm3 = EMM.fromList [(ID3 1 :& ID2 2 :& (K $ ID1 3), 4)]
+          key3 = ID3 1 :& ID2 2 :& (K $ ID1 3)
+      describe "looks up a subtree" $ do
+         let emm2 :: EnumMapMap (Int :& K Int) Int
+             emm2 = EMM.fromList [(1 :& K 2, 5)]
+             key1 :: K ID3
+             key1 = K $ ID3 1
+             key2 :: ID3 :& K ID2
+             key2 = ID3 1 :& (K $ ID2 2)
+         it "First level of level 2" $
+            (EMM.lookup (K 1) emm2) @?= (Just $ EMM.fromList [(K 2, 5)])
+         it "1 level of level 3" $
+            (EMM.lookup key1 emm3) @?= (Just $
+                                     EMM.fromList [(ID2 2 :& (K $ ID1 3), 4)])
+         it "2 levels of level 3" $
+            (EMM.lookup key2 emm3) @?= (Just $ EMM.fromList [(K $ ID1 3, 4)])
+      it "looks up a value" $
+         (EMM.lookup key3 emm3) @?= Just 4
+
     describe "insert" $ do
       describe "Level 1" $ do
         it "creates a value in an empty EMM" $

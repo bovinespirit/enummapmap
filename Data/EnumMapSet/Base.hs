@@ -1,5 +1,6 @@
-{-# LANGUAGE BangPatterns, CPP, GeneralizedNewtypeDeriving, MagicHash,
-  TypeFamilies #-}
+{-# LANGUAGE BangPatterns, CPP, FlexibleContexts, FlexibleInstances,
+ GeneralizedNewtypeDeriving, MagicHash, MultiParamTypeClasses, TypeFamilies,
+ TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
@@ -23,6 +24,7 @@ module Data.EnumMapSet.Base (
             null,
             size,
             member,
+            lookup,
             -- * Construction
             empty,
             singleton,
@@ -268,7 +270,6 @@ instance (Enum k, Eq k) => IsEmm (S k) where
 
     insertWith = undefined
     insertWithKey = undefined
-    lookup = undefined
     alter = undefined
     foldr = undefined
     map = undefined
@@ -300,6 +301,16 @@ size = EMM.size
 
 member ::(IsEmm k) => k -> EnumMapSet k -> Bool
 member = EMM.member
+
+-- | Lookup a subtree in an 'EnumMapSet'.
+--
+-- > ems = fromList [1 :& 2 :& K 3, 1 :& 2 :& K 4]
+-- > lookup (1 :& K 2) ems == fromList [K 3, K 4]
+-- > lookup (1 :& 2 :& K 3) -- ERROR: Use 'member' to check for a key.
+--
+lookup :: (EMM.CanSplit k1 k2 (), IsEmm k1, IsEmm k2) =>
+          k1 -> EnumMapSet k2 -> Maybe (EMM.Result k1 k2 ())
+lookup = EMM.lookup
 
 empty :: (IsEmm k) => EnumMapSet k
 empty = EMM.empty
@@ -358,6 +369,20 @@ instance EMM.HasSKey (S k) where
     type Skey (S k) = S k
     toS (S _) = undefined
     toK (S _) = undefined
+
+instance (Enum k1, k1 ~ k2) => EMM.CanSplit (S k1) (k2 :& t2) () where
+    type Result (S k1) (k2 :& t2) () = EnumMapSet t2
+    lookup (S key') (EMM.KCC emm) = key `seq` go emm
+        where
+          go (EMM.Bin _ m l r)
+             | zero key m = go l
+             | otherwise = go r
+          go (EMM.Tip kx x)
+             = case kx == key of
+                 True -> Just x
+                 False -> Nothing
+          go EMM.Nil = Nothing
+          key = fromEnum key'
 
 {---------------------------------------------------------------------
   Helper functions

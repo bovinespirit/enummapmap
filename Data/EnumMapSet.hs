@@ -31,6 +31,7 @@ module Data.EnumMapSet (
             EMS.null,
             size,
             member,
+            EMS.lookup,
             -- * Construction
             empty,
             singleton,
