@@ -102,23 +102,23 @@ d1  =  Z
 --
 -- > emm :: EnumMapMap (T1 :& T2 :& K T3) v
 -- > splitKey d1 emm :: EnumMapMap (K T1) (EnumMapMap (T2 :& K T3) v)
-d2 ::  N(Z)
+d2 ::  N Z
 d2  =  N d1
-d3 ::  N(N(Z))
+d3 ::  N(N Z)
 d3  =  N d2
-d4 ::  N(N(N(Z)))
+d4 ::  N(N(N Z))
 d4  =  N d3
-d5 ::  N(N(N(N(Z))))
+d5 ::  N(N(N(N Z)))
 d5  =  N d4
-d6 ::  N(N(N(N(N(Z)))))
+d6 ::  N(N(N(N(N Z))))
 d6  =  N d5
-d7 ::  N(N(N(N(N(N(Z))))))
+d7 ::  N(N(N(N(N(N Z)))))
 d7  =  N d6
-d8 ::  N(N(N(N(N(N(N(Z)))))))
+d8 ::  N(N(N(N(N(N(N Z))))))
 d8  =  N d7
-d9 ::  N(N(N(N(N(N(N(N(Z))))))))
+d9 ::  N(N(N(N(N(N(N(N Z)))))))
 d9  =  N d8
-d10 :: N(N(N(N(N(N(N(N(N(Z)))))))))
+d10 :: N(N(N(N(N(N(N(N(N Z))))))))
 d10 =  N d9
 
 class IsSplit k z where
@@ -143,12 +143,12 @@ class IsSplit k z where
              -> EnumMapMap (Head k z) (EnumMapMap (Tail k z) v)
 
 instance (IsSplit t n, Enum k) => IsSplit (k :& t) (N n) where
-    type Head (k :& t) (N n) = k :& (Head t n)
+    type Head (k :& t) (N n) = k :& Head t n
     type Tail (k :& t) (N n) = Tail t n
     splitKey (N n) (KCC emm) = KCC $ mapWithKey_ (\_ -> splitKey n) emm
 
 type family Plus k1 k2 :: *
-type instance Plus (k1 :& t) k2 = k1 :& (Plus t k2)
+type instance Plus (k1 :& t) k2 = k1 :& Plus t k2
 
 class HasSKey k where
     type Skey k :: *
@@ -157,17 +157,17 @@ class HasSKey k where
     -- > k = 1 :& 2 :& 'K' 3
     -- > toS k == 1 :& 2 :& 'S' 3
     --
-    toS :: k -> (Skey k)
+    toS :: k -> Skey k
     -- | Convert a key terminated with 'S' into one terminated with 'K'.
     --
     -- > s = 1 :& 2 :& S 3
     -- > toK s == 1 :& 2 :& K 3
-    toK :: (Skey k) -> k
+    toK :: Skey k -> k
 
 instance (HasSKey t) => HasSKey (k :& t) where
     type Skey (k :& t) = k :& (Skey t)
-    toS (k :& t) = (:&) k $! (toS t)
-    toK (k :& t) = (:&) k $! (toK t)
+    toS (k :& t) = (:&) k $! toS t
+    toK (k :& t) = (:&) k $! toK t
 
 class (Eq k) => IsEmm k where
     -- | A map of keys to values.  The keys are 'Enum' types but are stored as 'Int's
@@ -378,7 +378,7 @@ instance (Eq k, Enum k, IsEmm t, HasSKey t) => IsEmm (k :& t) where
               | zero (fromEnum key) m = go l
               | otherwise = go r
           go (Tip kx x)
-             = case kx == (fromEnum key) of
+             = case kx == fromEnum key of
                  True -> lookup nxt x
                  False -> Nothing
           go Nil = Nothing
@@ -417,7 +417,7 @@ instance (Eq k, Enum k, IsEmm t, HasSKey t) => IsEmm (k :& t) where
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
                    Tip k1 $ unionWithKey (g k1) x1 x2
-              g k1 nxt = f $ (toEnum k1) :& nxt
+              g k1 nxt = f $ toEnum k1 :& nxt
 
     difference (KCC emm1) (KCC emm2) =
         KCC $ mergeWithKey' binD go id (const Nil) emm1 emm2
@@ -429,7 +429,7 @@ instance (Eq k, Enum k, IsEmm t, HasSKey t) => IsEmm (k :& t) where
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
                    tip k1 $ differenceWithKey (\nxt ->
-                                              f $ (toEnum k1) :& nxt) x1 x2
+                                              f $ toEnum k1 :& nxt) x1 x2
 
     intersection (KCC emm1) (KCC emm2) =
         KCC $ mergeWithKey' binD go (const Nil) (const Nil) emm1 emm2
@@ -441,7 +441,7 @@ instance (Eq k, Enum k, IsEmm t, HasSKey t) => IsEmm (k :& t) where
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
                    tip k1 $ intersectionWithKey (\nxt ->
-                                                f $ (toEnum k1) :& nxt) x1 x2
+                                                f $ toEnum k1 :& nxt) x1 x2
 
     equal (KCC emm1) (KCC emm2) = emm1 == emm2
     nequal (KCC emm1) (KCC emm2) = emm1 /= emm2
@@ -527,7 +527,7 @@ mergeWithKey' bin' f g1 g2 = go
                | zero p1 m2        = bin' p2 m2 (go t1 l2) (g2 r2)
                | otherwise         = bin' p2 m2 (g2 l2) (go t1 r2)
 
-    go t1'@(Bin _ _ _ _) t2'@(Tip k2' _) = merge t2' k2' t1'
+    go t1'@(Bin {}) t2'@(Tip k2' _) = merge t2' k2' t1'
       where merge t2 k2 t1@(Bin p1 m1 l1 r1)
                 | nomatch k2 p1 m1 = maybe_join p1 (g1 t1) k2 (g2 t2)
                 | zero k2 m1 = bin' p1 m1 (merge t2 k2 l1) (g1 r1)
@@ -537,7 +537,7 @@ mergeWithKey' bin' f g1 g2 = go
                 | otherwise = maybe_join k1 (g1 t1) k2 (g2 t2)
             merge t2 _  Nil = g2 t2
 
-    go t1@(Bin _ _ _ _) Nil = g1 t1
+    go t1@(Bin {}) Nil = g1 t1
 
     go t1'@(Tip k1' _) t2' = merge t1' k1' t2'
       where merge t1 k1 t2@(Bin p2 m2 l2 r2)
@@ -574,7 +574,7 @@ instance Eq v => Eq (EMM k v) where
 
 equalE :: Eq v => EMM k v -> EMM k v -> Bool
 equalE (Bin p1 m1 l1 r1) (Bin p2 m2 l2 r2)
-  = (m1 == m2) && (p1 == p2) && (equalE l1 l2) && (equalE r1 r2)
+  = (m1 == m2) && (p1 == p2) && equalE l1 l2 && equalE r1 r2
 equalE (Tip kx x) (Tip ky y)
   = (kx == ky) && (x==y)
 equalE Nil Nil = True
@@ -582,7 +582,7 @@ equalE _   _   = False
 
 nequalE :: Eq v => EMM k v -> EMM k v -> Bool
 nequalE (Bin p1 m1 l1 r1) (Bin p2 m2 l2 r2)
-  = (m1 /= m2) || (p1 /= p2) || (nequalE l1 l2) || (nequalE r1 r2)
+  = (m1 /= m2) || (p1 /= p2) || nequalE l1 l2 || nequalE r1 r2
 nequalE (Tip kx x) (Tip ky y)
   = (kx /= ky) || (x/=y)
 nequalE Nil Nil = False
@@ -687,16 +687,16 @@ tip k val
 --------------------------------------------------------------------}
 zero :: Key -> Mask -> Bool
 zero i m
-  = (natFromInt i) .&. (natFromInt m) == 0
+  = natFromInt i .&. natFromInt m == 0
 {-# INLINE zero #-}
 
 nomatch,match :: Key -> Prefix -> Mask -> Bool
 nomatch i p m
-  = (mask i m) /= p
+  = mask i m /= p
 {-# INLINE nomatch #-}
 
 match i p m
-  = (mask i m) == p
+  = mask i m == p
 {-# INLINE match #-}
 
 mask :: Key -> Mask -> Prefix
@@ -714,7 +714,7 @@ maskW i m
 
 shorter :: Mask -> Mask -> Bool
 shorter m1 m2
-  = (natFromInt m1) > (natFromInt m2)
+  = natFromInt m1 > natFromInt m2
 {-# INLINE shorter #-}
 
 branchMask :: Prefix -> Prefix -> Mask
