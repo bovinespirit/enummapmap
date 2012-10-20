@@ -81,7 +81,7 @@ type Prefix = Int
 type Mask   = Int
 
 infixr 3 :&
--- | Multiple keys are joined by the (':&') constructor and terminated with 'K'.
+-- | Multiple keys are joined by the (':&') constructor.
 --
 -- > multiKey :: Int :& Int :& K Int
 -- > multiKey = 5 :& 6 :& K 5
@@ -152,7 +152,16 @@ type instance Plus (k1 :& t) k2 = k1 :& (Plus t k2)
 
 class HasSKey k where
     type Skey k :: *
+    -- | Convert a key terminated with 'K' into one terminated with 'S'.
+    --
+    -- > k = 1 :& 2 :& 'K' 3
+    -- > toS k == 1 :& 2 :& 'S' 3
+    --
     toS :: k -> (Skey k)
+    -- | Convert a key terminated with 'S' into one terminated with 'K'.
+    --
+    -- > s = 1 :& 2 :& S 3
+    -- > toK s == 1 :& 2 :& K 3
     toK :: (Skey k) -> k
 
 instance (HasSKey t) => HasSKey (k :& t) where
@@ -170,10 +179,11 @@ class (Eq k) => IsEmm k where
     emptySubTrees  :: EnumMapMap k v -> Bool
     emptySubTrees_ :: EnumMapMap k v -> Bool
 
+    -- | Remove empty subtrees.
     removeEmpties :: EnumMapMap k v -> EnumMapMap k v
 
-    -- | Join a key so that an 'EnumMapMap' of
-    -- 'EnumMapMap's becomes an 'EnumMapMap'.
+    -- | Join a key so that an 'EnumMapMap' of 'EnumMapMap's becomes an
+    -- 'EnumMapMap'.
     --
     -- > newtype ID = ID Int deriving Enum
     -- > emm :: EnumMapMap (K Int) (EnumMapMap (K ID) Bool)
@@ -190,9 +200,9 @@ class (Eq k) => IsEmm k where
             -> EnumMapMap (Plus k k2) v
     joinKey = removeEmpties . unsafeJoinKey
 
-    -- | Join a key so that an 'EnumMapMap' of
-    -- 'EnumMapMap's becomes an 'EnumMapMap'.  The unsafe version does not check
-    -- for empty subtrees, so it is faster.
+    -- | Join a key so that an 'EnumMapMap' of 'EnumMapMap's becomes an
+    -- 'EnumMapMap'.  The unsafe version does not check for empty subtrees, so
+    -- it is faster.
     --
     -- > newtype ID = ID Int deriving Enum
     -- > emm :: EnumMapMap (K Int) (EnumMapMap (K ID) Bool)
@@ -264,7 +274,8 @@ class (Eq k) => IsEmm k where
     -- | List of keys
     keys :: EnumMapMap k v -> [k]
     keys = foldrWithKey (\k _ ks -> k:ks) []
-    -- | The 'EnumMapSet' of the keys
+    -- | The 'Data.EnumMapSet' of the keys.  'EnumMapMap' keys can be converted into
+    -- 'Data.EnumMapSet' keys using 'toS', and back again using 'toK'.
     keysSet :: (HasSKey k) => EnumMapMap k v -> EnumMapMap (Skey k) ()
     -- | The (left-biased) union of two 'EnumMapMap's.
     -- It prefers the first 'EnumMapMap' when duplicate keys are encountered.

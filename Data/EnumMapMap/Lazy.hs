@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP, MagicHash, TypeFamilies, TypeOperators, BangPatterns,
-             FlexibleInstances, MultiParamTypeClasses,
-             GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP, BangPatterns, FlexibleInstances, GeneralizedNewtypeDeriving,
+  MagicHash, MultiParamTypeClasses, TypeFamilies, TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
@@ -10,10 +9,24 @@
 --                (c) Andriy Palamarchuk 2008
 --                (c) Matthew West 2012
 -- License     :  BSD-style
--- Maintainer  :
 -- Stability   :  experimental
 -- Portability :  Uses GHC extensions
 --
+-- Lazy 'EnumMapMap'.  Based upon "Data.IntMap.Lazy", this version uses multi
+-- dimensional keys and 'Enum' types instead of 'Int's.  Keys are built using
+-- the ':&' operator and terminated with 'K'.  They are stored using 'Int's so 2
+-- keys that 'Enum' to the same 'Int' value will overwrite each other.  The
+-- intension is that the 'Enum' types will actually be @newtype 'Int'@s.
+--
+-- > newtype AppleID = AppleID Int
+-- > newtype TreeID = TreeID Int
+-- > type Orchard = EnumMapMap (TreeID :& K AppleID) Apple
+-- > apple = lookup (TreeID 4 :& K AppleID 32) orchard
+--
+-- The 'K' type is different to that used in "Data.EnumMapMap.Strict" so only lazy
+-- operations can be performed on a lazy 'EnumMapMap'.
+--
+-- The functions are lazy on values, but strict on keys.
 -----------------------------------------------------------------------------
 
 module Data.EnumMapMap.Lazy (
