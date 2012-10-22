@@ -26,11 +26,11 @@ module Data.EnumMapMap.Base(
             -- * Split/Join Keys
             IsSplit(..),
             Plus,
-            CanSplit(..),
+            SubKey(..),
             -- * Internal
             -- ** IsEMM
             EMM(..),
-            IsEmm(..),
+            IsKey(..),
             EnumMapMap(..),
             -- ** SKey
             HasSKey(..),
@@ -151,7 +151,7 @@ instance (IsSplit t n, Enum k) => IsSplit (k :& t) (N n) where
 type family Plus k1 k2 :: *
 type instance Plus (k1 :& t) k2 = k1 :& Plus t k2
 
-class CanSplit k1 k2 v where
+class SubKey k1 k2 v where
     type Result k1 k2 v :: *
     -- | Lookup up the value at a key in the 'EnumMapMap'.
     --
@@ -165,11 +165,11 @@ class CanSplit k1 k2 v where
     -- > emm2 = fromList [(3 :& 2 :& K 1, "a"), (3 :& 2 :& K 4, "a")]
     -- > lookup (3 :& K 2) emm2 == Just $ fromList [(K 1, "a"), (K 4, "a")]
     --
-    lookup :: (IsEmm k1, IsEmm k2) =>
+    lookup :: (IsKey k1, IsKey k2) =>
                 k1 -> EnumMapMap k2 v -> Maybe (Result k1 k2 v)
 
-instance (Enum k, IsEmm t1, IsEmm t2, CanSplit t1 t2 v) =>
-    CanSplit (k :& t1) (k :& t2) v where
+instance (Enum k, IsKey t1, IsKey t2, SubKey t1 t2 v) =>
+    SubKey (k :& t1) (k :& t2) v where
     type Result (k :& t1) (k :& t2) v = Result t1 t2 v
     lookup (key' :& nxt) (KCC emm) = key `seq` go emm
         where
@@ -202,7 +202,7 @@ instance (HasSKey t) => HasSKey (k :& t) where
     toS (k :& t) = (:&) k $! toS t
     toK (k :& t) = (:&) k $! toK t
 
-class (Eq k) => IsEmm k where
+class (Eq k) => IsKey k where
     -- | A map of keys to values.  The keys are 'Enum' types but are stored as 'Int's
     -- so any keys with the same 'Int' value are treated as the same.  The aim is to
     -- provide typesafe indexing.
@@ -228,7 +228,7 @@ class (Eq k) => IsEmm k where
     -- > emm = empty :: EnumMapMap (Int :& Int :& K ID) Bool)
     -- > emm == joinKey $ splitKey d2 emm
     --
-    joinKey :: (IsEmm (Plus k k2)) =>
+    joinKey :: (IsKey (Plus k k2)) =>
                EnumMapMap k (EnumMapMap k2 v)
             -> EnumMapMap (Plus k k2) v
     joinKey = removeEmpties . unsafeJoinKey
@@ -348,7 +348,7 @@ class (Eq k) => IsEmm k where
     equal ::  Eq v => EnumMapMap k v -> EnumMapMap k v -> Bool
     nequal :: Eq v => EnumMapMap k v -> EnumMapMap k v -> Bool
 
-instance (Eq k, Enum k, IsEmm t, HasSKey t) => IsEmm (k :& t) where
+instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
     data EnumMapMap (k :& t) v = KCC (EMM k (EnumMapMap t v))
 
     emptySubTrees e@(KCC emm) =
@@ -484,7 +484,7 @@ insertWith_ f !key' val emm = key `seq` go emm
 -- | 'alter_' is used to walk down the tree to find the 'EnumMapMap' to actually
 -- change.  If the new 'EnumMapMap' is null then it's removed from the containing
 -- 'EMM'.
-alter_ :: (IsEmm b) =>
+alter_ :: (IsKey b) =>
           (EnumMapMap b v -> EnumMapMap b v)
        -> Key
        -> EMM a (EnumMapMap b v)
@@ -579,7 +579,7 @@ mergeWithKey' bin' f g1 g2 = go
 
 -- Eq
 
-instance (Eq v, IsEmm k) => Eq (EnumMapMap k v) where
+instance (Eq v, IsKey k) => Eq (EnumMapMap k v) where
   t1 == t2  = equal t1 t2
   t1 /= t2  = nequal t1 t2
 
@@ -603,11 +603,11 @@ nequalE (Tip kx x) (Tip ky y)
 nequalE Nil Nil = False
 nequalE _   _   = True
 
-instance (IsEmm k) => Functor (EnumMapMap k)
+instance (IsKey k) => Functor (EnumMapMap k)
     where
       fmap = map
 
-instance (IsEmm k) => Monoid (EnumMapMap k v) where
+instance (IsKey k) => Monoid (EnumMapMap k v) where
     mempty = empty
     mappend = union
     mconcat = unions
@@ -651,7 +651,7 @@ join p1 t1 p2 t2
     p = mask p1 m
 {-# INLINE join #-}
 
-joinD :: (IsEmm b) =>
+joinD :: (IsKey b) =>
          Prefix -> EMM a (EnumMapMap b v)
       -> Prefix -> EMM a (EnumMapMap b v)
       -> EMM a (EnumMapMap b v)
@@ -675,7 +675,7 @@ bin p m l r   = Bin p m l r
 {--------------------------------------------------------------------
   @binD@ assures that we never have empty trees in the next level
 --------------------------------------------------------------------}
-binD :: (IsEmm b) =>
+binD :: (IsKey b) =>
         Prefix -> Mask
      -> EMM a (EnumMapMap b v)
      -> EMM a (EnumMapMap b v)
@@ -691,7 +691,7 @@ binD p m l@(Tip _ y) r
 binD p m l r = Bin p m l r
 {-# INLINE binD #-}
 
-tip :: (IsEmm b) => Key -> EnumMapMap b v -> EMM a (EnumMapMap b v)
+tip :: (IsKey b) => Key -> EnumMapMap b v -> EMM a (EnumMapMap b v)
 tip k val
     | null val  = Nil
     | otherwise = Tip k val

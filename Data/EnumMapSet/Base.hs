@@ -65,7 +65,7 @@ import           GHC.Prim (indexInt8OffAddr#)
 #include "MachDeps.h"
 
 import           Data.EnumMapMap.Base ((:&)(..),
-                                       IsEmm,
+                                       IsKey,
                                        EnumMapMap,
                                        Prefix, Nat, Mask,
                                        branchMask, mask,
@@ -96,7 +96,7 @@ data EMS k = Bin {-# UNPACK #-} !Prefix {-# UNPACK #-} !Mask
            | Nil
              deriving (Show)
 
-instance (Enum k, Eq k) => IsEmm (S k) where
+instance (Enum k, Eq k) => IsKey (S k) where
     data EnumMapMap (S k) v = KSC (EMS k)
 
     emptySubTrees e@(KSC emm) =
@@ -293,13 +293,13 @@ instance (Enum k, Eq k) => IsEmm (S k) where
   GHC will inline away all the empty parameters.
 ---------------------------------------------------------------------}
 
-null :: (IsEmm k) => EnumMapSet k -> Bool
+null :: (IsKey k) => EnumMapSet k -> Bool
 null = EMM.null
 
-size :: (IsEmm k) => EnumMapSet k -> Int
+size :: (IsKey k) => EnumMapSet k -> Int
 size = EMM.size
 
-member ::(IsEmm k) => k -> EnumMapSet k -> Bool
+member ::(IsKey k) => k -> EnumMapSet k -> Bool
 member = EMM.member
 
 -- | Lookup a subtree in an 'EnumMapSet'.
@@ -308,24 +308,24 @@ member = EMM.member
 -- > lookup (1 :& K 2) ems == fromList [K 3, K 4]
 -- > lookup (1 :& 2 :& K 3) -- ERROR: Use 'member' to check for a key.
 --
-lookup :: (EMM.CanSplit k1 k2 (), IsEmm k1, IsEmm k2) =>
+lookup :: (EMM.SubKey k1 k2 (), IsKey k1, IsKey k2) =>
           k1 -> EnumMapSet k2 -> Maybe (EMM.Result k1 k2 ())
 lookup = EMM.lookup
 
-empty :: (IsEmm k) => EnumMapSet k
+empty :: (IsKey k) => EnumMapSet k
 empty = EMM.empty
 
-singleton :: (IsEmm k) => k -> EnumMapSet k
+singleton :: (IsKey k) => k -> EnumMapSet k
 singleton !key = EMM.singleton key ()
 
-insert :: (IsEmm k) => k -> EnumMapSet k -> EnumMapSet k
+insert :: (IsKey k) => k -> EnumMapSet k -> EnumMapSet k
 insert !key = EMM.insert key ()
 
-delete :: (IsEmm k) => k -> EnumMapSet k -> EnumMapSet k
+delete :: (IsKey k) => k -> EnumMapSet k -> EnumMapSet k
 delete = EMM.delete
 
 -- This function has not been optimised in any way.
-foldr :: (IsEmm k) => (k -> t -> t) -> t -> EnumMapSet k -> t
+foldr :: (IsKey k) => (k -> t -> t) -> t -> EnumMapSet k -> t
 foldr f = EMM.foldrWithKey go
     where
       go k _ z = f k z
@@ -334,31 +334,31 @@ foldr f = EMM.foldrWithKey go
 --
 -- It's worth noting that the size of the result may be smaller if,
 -- for some @(x,y)@, @x \/= y && f x == f y@
-map :: (IsEmm k1, IsEmm k2) =>
+map :: (IsKey k1, IsKey k2) =>
        (k1 -> k2) -> EnumMapSet k1 -> EnumMapSet k2
 map f = fromList . List.map f . toList
 
-union :: (IsEmm k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
+union :: (IsKey k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
 union = EMM.union
 
-difference :: (IsEmm k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
+difference :: (IsKey k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
 difference = EMM.difference
 
-intersection :: (IsEmm k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
+intersection :: (IsKey k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
 intersection = EMM.intersection
 
 {---------------------------------------------------------------------
   Lists
 ---------------------------------------------------------------------}
 
-fromList :: IsEmm k => [k] -> EnumMapSet k
+fromList :: IsKey k => [k] -> EnumMapSet k
 fromList xs
     = foldlStrict (\t x -> insert x t) empty xs
 
-toList :: IsEmm k => EnumMapSet k -> [k]
+toList :: IsKey k => EnumMapSet k -> [k]
 toList = foldr (:) []
 
-keys :: IsEmm k => EnumMapSet k -> [k]
+keys :: IsKey k => EnumMapSet k -> [k]
 keys = toList
 
 {---------------------------------------------------------------------
@@ -370,7 +370,7 @@ instance EMM.HasSKey (S k) where
     toS (S _) = undefined
     toK (S _) = undefined
 
-instance (Enum k1, k1 ~ k2) => EMM.CanSplit (S k1) (k2 :& t2) () where
+instance (Enum k1, k1 ~ k2) => EMM.SubKey (S k1) (k2 :& t2) () where
     type Result (S k1) (k2 :& t2) () = EnumMapSet t2
     lookup (S key') (EMM.KCC emm) = key `seq` go emm
         where

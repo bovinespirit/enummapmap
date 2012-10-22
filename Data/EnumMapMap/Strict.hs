@@ -104,7 +104,7 @@ import qualified Data.EnumMapSet.Base as EMS
 newtype K k = K k
            deriving (Show, Eq)
 
-instance (Enum k, Eq k) => IsEmm (K k) where
+instance (Enum k, Eq k) => IsKey (K k) where
     data EnumMapMap (K k) v = KEC (EMM k v)
 
     emptySubTrees e@(KEC emm) =
@@ -285,7 +285,7 @@ instance IsSplit (k :& t) Z where
     type Tail (k :& t) Z = t
     splitKey Z (KCC emm) = KEC $ emm
 
-instance (Enum k1, k1 ~ k2) => CanSplit (K k1) (k2 :& t2) v where
+instance (Enum k1, k1 ~ k2) => SubKey (K k1) (k2 :& t2) v where
     type Result (K k1) (k2 :& t2) v = EnumMapMap t2 v
     lookup (K key') (KCC emm) = key `seq` go emm
         where
@@ -299,7 +299,7 @@ instance (Enum k1, k1 ~ k2) => CanSplit (K k1) (k2 :& t2) v where
           go Nil = Nothing
           key = fromEnum key'
 
-instance (Enum k) => CanSplit (K k) (K k) v where
+instance (Enum k) => SubKey (K k) (K k) v where
     type Result (K k) (K k) v = v
     lookup (K key') (KEC emm) = key `seq` go emm
         where
