@@ -170,17 +170,6 @@ instance (Enum k, Eq k) => IsKey (K k) where
                      Nil                   -> Tip key val
               key = fromEnum key'
 
-    delete !(K key') (KEC emm) = KEC $ go emm
-        where
-          go t = case t of
-                   Bin p m l r | nomatch key p m -> t
-                               | zero key m      -> bin p m (go l) r
-                               | otherwise       -> bin p m l (go r)
-                   Tip ky _    | key == ky       -> Nil
-                               | otherwise       -> t
-                   Nil                           -> Nil
-          key = fromEnum key'
-
     alter f !(K key') (KEC emm) = KEC $ go emm
         where
           go t = case t of
@@ -286,29 +275,29 @@ instance IsSplit (k :& t) Z where
 
 instance (Enum k1, k1 ~ k2) => SubKey (K k1) (k2 :& t2) v where
     type Result (K k1) (k2 :& t2) v = EnumMapMap t2 v
-    lookup (K key') (KCC emm) = key `seq` go emm
-        where
-          go (Bin _ m l r)
-             | zero key m = go l
-             | otherwise = go r
-          go (Tip kx x)
-             = case kx == key of
-                 True -> Just x
-                 False -> Nothing
-          go Nil = Nothing
-          key = fromEnum key'
+    lookup (K key') (KCC emm) = lookup_ (fromEnum key') emm
+    delete !(K key') (KCC emm) = KCC $ delete_ (fromEnum key') emm
 
 instance (Enum k) => SubKey (K k) (K k) v where
     type Result (K k) (K k) v = v
-    lookup (K key') (KEC emm) = key `seq` go emm
-        where
-          go (Bin _ m l r)
-             | zero key m = go l
-             | otherwise = go r
-          go (Tip kx x)
-             = case kx == key of
-                 True -> Just x
-                 False -> Nothing
-          go Nil = Nothing
-          key = fromEnum key'
+    lookup (K key') (KEC emm) = lookup_ (fromEnum key') emm
+    delete !(K key') (KEC emm) = KEC $ delete_ (fromEnum key') emm
 
+lookup_ :: Key -> EMM k v -> Maybe v
+lookup_ !key emm =
+    case emm of
+      Bin _ m l r
+          | zero key m -> lookup_ key l
+          | otherwise  -> lookup_ key r
+      Tip kx x         -> if kx == key then Just x else Nothing
+      Nil              -> Nothing
+
+delete_ :: Key -> EMM k v -> EMM k v
+delete_ !key emm =
+    case emm of
+      Bin p m l r | nomatch key p m -> emm
+                  | zero key m      -> bin p m (delete_ key l) r
+                  | otherwise       -> bin p m l (delete_ key r)
+      Tip ky _    | key == ky       -> Nil
+                  | otherwise       -> emm
+      Nil                           -> Nil

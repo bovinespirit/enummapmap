@@ -144,10 +144,6 @@ instance (Enum k, Eq k) => IsKey (S k) where
         = key `seq` KSC $ insertBM (prefixOf key) (bitmapOf key) ems
           where key = fromEnum key'
 
-    delete (S key') (KSC ems)
-        = key `seq` KSC $ deleteBM (prefixOf key) (bitmapOf key) ems
-          where key = fromEnum key'
-
     foldrWithKey f init (KSC ems)
         = case ems of Bin _ m l r | m < 0 -> go (go init l) r
                                   | otherwise -> go (go init r) l
@@ -321,7 +317,8 @@ singleton !key = EMM.singleton key ()
 insert :: (IsKey k) => k -> EnumMapSet k -> EnumMapSet k
 insert !key = EMM.insert key ()
 
-delete :: (IsKey k) => k -> EnumMapSet k -> EnumMapSet k
+delete :: (EMM.SubKey k1 k2 (), IsKey k1, IsKey k2) =>
+          k1 -> EnumMapSet k2 -> EnumMapSet k2
 delete = EMM.delete
 
 -- This function has not been optimised in any way.
@@ -383,6 +380,23 @@ instance (Enum k1, k1 ~ k2) => EMM.SubKey (S k1) (k2 :& t2) () where
                  False -> Nothing
           go EMM.Nil = Nothing
           key = fromEnum key'
+    delete (S key') (EMM.KCC emm) = key `seq` EMM.KCC $ go emm
+        where
+          go t = case t of
+                   EMM.Bin p m l r | nomatch key p m -> t
+                                   | zero key m      -> EMM.bin p m (go l) r
+                                   | otherwise       -> EMM.bin p m l (go r)
+                   EMM.Tip ky _    | key == ky       -> EMM.Nil
+                                   | otherwise       -> t
+                   EMM.Nil                           -> EMM.Nil
+          key = fromEnum key'
+
+instance (Enum k) => EMM.SubKey (S k) (S k) () where
+    type Result (S k) (S k) () = Bool
+    lookup = undefined
+    delete !(S key') (KSC ems) =
+        key `seq` KSC $ deleteBM (prefixOf key) (bitmapOf key) ems
+          where key = fromEnum key'
 
 {---------------------------------------------------------------------
   Helper functions

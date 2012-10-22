@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, TypeOperators #-}
+{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, ScopedTypeVariables, TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.Monad (liftM, liftM2)
@@ -204,7 +204,12 @@ main =
                 EMM.fromList [(2 :& K 3, 1), (2 :& K 4, 48)]
 
     describe "delete" $ do
-      prop "leaves no empty subtrees" $ \k l ->
+      describe "leaves no empty subtrees" $ do
+        prop "Full key" $ \(k :: ID3 :& ID2 :& K ID1) l ->
+          not $ EMM.emptySubTrees $ EMM.delete k $ (EMM.fromList l :: TestEmm3)
+        prop "2 dimensional key" $ \(k :: ID3 :& K ID2) l ->
+          not $ EMM.emptySubTrees $ EMM.delete k $ (EMM.fromList l :: TestEmm3)
+        prop "1 dimensional key" $ \(k :: K ID3) l ->
           not $ EMM.emptySubTrees $ EMM.delete k $ (EMM.fromList l :: TestEmm3)
 
     describe "alter" $ do
