@@ -35,24 +35,27 @@ im' = EMM.insert (K 5) "Five" im
 
 The code ensures that only the root EnumMap can be empty.  There are lazy and strict variants.  Both are strict in the
 keys, but the strict version is strict on values as well.  The data structures are the same however the key types are
-different for the strict and lazy versions so strict operations can be performed on a lazy EnumMapMap.
+different for the strict and lazy versions so strict operations can be performed on a lazy EnumMapMap.
 
-The keys can be split to allow operations on whole subtrees. The level of the
-split is defined by a type.  These types range from `d1` to `d10`.
+_Subtrees_
 
+Whole subtrees can be operated on at a time.  Currently 'insert' is not supported.
 ```haskell
 
-tree = EMM.lookup (o &: K t) $ splitKey EMM.d1 orchards
-newOrchards = joinKey $ delete (K o) $ splitKey EMM.d2 orchards
+tree = EMM.lookup (o &: K t) $  orchards
+apple = EMM.lookup (K a) tree
+newOrchards = delete (K o) $ orchards
+EMM.lookup (o :& t :& K a) newOrchards == Nothing
 ```
 
-In the previous example `unsafeJoinKey` could be used instead of `joinKey` as
-there is no possibility of an empty subtree being left.
+_EnumMapSet_
+
+There is also 'EnumMapSet'.  The terminating key type is S instead of K.
 
 TODO:
 
+- Finish operations on subtrees: insert, insertWith, alter
 - More documentation
-- Document EnumMapSet, especially 'S'
 - More tests
 - EnumMapMap & EnumMapSet - intersectBy
 - Check that Strict really is strict and Lazy really is lazy.
