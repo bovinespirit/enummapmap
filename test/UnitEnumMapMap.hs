@@ -26,14 +26,25 @@ instance (Arbitrary a) => Arbitrary (K a) where
     arbitrary = liftM K arbitrary
 
 newtype ID1 = ID1 Int
-    deriving (Show, Enum, Arbitrary, Eq)
+    deriving (Show, Enum, Arbitrary, Eq, Num)
 newtype ID2 = ID2 Int
-    deriving (Show, Enum, Arbitrary, Eq)
+    deriving (Show, Enum, Arbitrary, Eq, Num)
 newtype ID3 = ID3 Int
-    deriving (Show, Enum, Arbitrary, Eq)
+    deriving (Show, Enum, Arbitrary, Eq, Num)
 
+type TestKey1 = K ID1
+type TestEmm1 = EnumMapMap TestKey1 Int
+type TestKey2 = ID2 :& K ID1
+type TestEmm2 = EnumMapMap TestKey2 Int
 type TestKey3 = ID3 :& ID2 :& K ID1
 type TestEmm3 = EnumMapMap TestKey3 Int
+
+type I = K Int
+
+-- Functions that are part of 'SubKey' class can't cope with @K 1@ because GHC
+-- doesn't know it's also an 'Int'.
+k :: Int -> K Int
+k = K
 
 tens :: [Int]
 tens = [1, 10, 100, 1000, 10000, 100000, 1000000]
@@ -50,23 +61,23 @@ evens = [2, 4..1000]
 alls :: [Int]
 alls = [1, 2..1000]
 
-l1tens :: EnumMapMap (K Int) Int
-l1tens = EMM.fromList $ map (\(k, v) -> (K k, v)) $ zip [1..7] tens
-l2tens :: EnumMapMap (Int :& K Int) Int
+l1tens :: EnumMapMap I Int
+l1tens = EMM.fromList $ map (\(key, v) -> (K key, v)) $ zip [1..7] tens
+l2tens :: EnumMapMap (Int :& I) Int
 l2tens = EMM.fromList $ zip (do
                               k1 <- [1, 2]
                               k2 <- [1..7]
                               return $ k1 :& K k2) $ cycle tens
 
 l1odds :: EnumMapMap (K Int) Int
-l1odds = EMM.fromList $ map (\(k, v) -> (K k, v)) $ zip odds odds
+l1odds = EMM.fromList $ map (\(key, v) -> (K key, v)) $ zip odds odds
 l2odds :: EnumMapMap (Int :& K Int) Int
 l2odds = EMM.fromList $ zip (do
                               k1 <- fewOdds
                               k2 <- fewOdds
                               return $ k1 :& K k2) $ cycle odds
 l1evens :: EnumMapMap (K Int) Int
-l1evens = EMM.fromList $ map (\(k, v) -> (K k, v)) $ zip evens evens
+l1evens = EMM.fromList $ map (\(key, v) -> (K key, v)) $ zip evens evens
 
 l1alls :: EnumMapMap (K Int) Int
 l1alls = EMM.fromList $ zip (map K alls) alls
@@ -102,7 +113,7 @@ main =
           key3 = ID3 1 :& ID2 2 :& (K $ ID1 3)
       describe "looks up a subtree" $ do
          let emm2 :: EnumMapMap (Int :& K Int) Int
-             emm2 = EMM.fromList [(1 :& K 2, 5)]
+             emm2 = EMM.fromList [(1 :& k 2, 5)]
              key1 :: K ID3
              key1 = K $ ID3 1
              key2 :: ID3 :& K ID2
@@ -117,27 +128,35 @@ main =
       it "looks up a value" $
          (EMM.lookup key3 emm3) @?= Just 4
 
+    describe "singleton" $ do
+      let emm2 :: EnumMapMap (ID1 :& K ID2) String
+          emm2 = EMM.fromList [(ID1 1 :& (K $ ID2 2), "a")]
+      it "creates an EnumMapMap with one value" $
+         (EMM.singleton (ID1 1 :& (K $ ID2 2)) "a") @?= emm2
+      it "creates an EnumMapMap with a sub EnumMapMap" $
+         (EMM.singleton (K $ ID1 1) $ EMM.singleton (K $ ID2 2) "a") @?= emm2
+
     describe "insert" $ do
       describe "Level 1" $ do
         it "creates a value in an empty EMM" $
-           EMM.insert (K 1) 1 EMM.empty @?=
-           (EMM.fromList [(K 1, 1)]
-                           :: EnumMapMap (K Int) Int)
+           EMM.insert (k 1) 1 EMM.empty @?=
+           (EMM.fromList [(k 1, 1)]
+                           :: EnumMapMap I Int)
         it "adds another value to an EMM" $
            let
                emm :: EnumMapMap (K Int) Int
-               emm = EMM.fromList [(K 2, 2)] in
-           EMM.insert (K 1) 1 emm @?=
-              EMM.fromList [(K 1, 1), (K 2, 2)]
+               emm = EMM.fromList [(k 2, 2)] in
+           EMM.insert (k 1) 1 emm @?=
+              EMM.fromList [(k 1, 1), (k 2, 2)]
         it "overwrites a value with the same key in an EMM" $
            let emm :: EnumMapMap (K Int) Int
                emm = EMM.fromList [(K 1, 1), (K 2, 2)] in
-           EMM.insert (K 1) 3 emm @?=
+           EMM.insert (k 1) 3 emm @?=
               EMM.fromList [(K 1, 3), (K 2, 2)]
 
         describe "Level 2" $ do
           it "creates a value in an empty EMM" $
-             EMM.insert (1 :& K 1) 1 EMM.empty @?=
+             EMM.insert ((1 :: Int) :& k 1) 1 EMM.empty @?=
                              (EMM.fromList [(1 :& K 1, 1)]
                                   :: EnumMapMap (Int :& K Int) Int)
           it "adds another value to an EMM on level 1" $
@@ -145,72 +164,84 @@ main =
                  emm :: EnumMapMap (Int :& K Int) Int
                  emm = EMM.fromList [(1 :& K 2, 2)]
              in
-               EMM.insert (1 :& K 1) 1 emm @?=
+               EMM.insert ((1 :: Int) :& k 1) 1 emm @?=
                EMM.fromList [(1 :& K 1, 1), (1 :& K 2, 2)]
           it "adds another value to an EMM on level 2" $
              let
                  emm :: EnumMapMap (Int :& K Int) Int
                  emm = EMM.fromList [(1 :& K 1, 1)]
              in
-               EMM.insert (2 :& K 2) 2 emm @?=
+               EMM.insert ((2 :: Int) :& k 2) 2 emm @?=
                EMM.fromList [(1 :& K 1, 1), (2 :& K 2, 2)]
+
+        describe "Subtrees" $ do
+          let emm2 :: TestEmm2
+              emm2 = EMM.fromList [(ID2 2 :& (K $ ID1 3), 4)]
+              emm1 :: TestEmm1
+              emm1 = EMM.fromList [(K $ ID1 4, 12)]
+          it "inserts a L1 into an empty L3 EMM" $
+             EMM.insert (ID3 2 :& (K $ ID2 3)) emm1 EMM.empty @?=
+                EMM.fromList [(ID3 2 :& ID2 3 :& (K $ ID1 4), 12)]
+          it "inserts a L2 into an empty L3 EMM" $
+             EMM.insert (K $ ID3 1) emm2 EMM.empty @?=
+                EMM.fromList [(ID3 1 :& ID2 2 :& (K $ ID1 3), 4)]
 
     describe "insertWithKey" $ do
       let undef = undefined -- fail if this is called
       describe "Level 1" $ do
         it "creates a value in an empty EMM" $
-           EMM.insertWithKey undef (K 1) 1 EMM.empty @?=
-                  (EMM.fromList [(K 1, 1)]
+           EMM.insertWithKey undef (k 1) 1 EMM.empty @?=
+                  (EMM.fromList [(k 1, 1)]
                        :: EnumMapMap (K Int) Int)
         it "adds another value to an EMM" $
            let
                emm :: EnumMapMap (K Int) Int
                emm = EMM.fromList [(K 2, 2)] in
-           EMM.insertWithKey undef (K 1) 1 emm @?=
-              EMM.fromList [(K 1, 1), (K 2, 2)]
+           EMM.insertWithKey undef (k 1) 1 emm @?=
+              EMM.fromList [(k 1, 1), (k 2, 2)]
         it "applies the function when overwriting" $
            let emm :: EnumMapMap (K Int) Int
-               emm = EMM.fromList [(K 1, 1), (K 2, 4)]
+               emm = EMM.fromList [(k 1, 1), (k 2, 4)]
                f (K key1) o n = key1 * (o + n)
            in
-             EMM.insertWithKey f (K 2) 3 emm @?=
-                EMM.fromList [(K 1, 1), (K 2, 14)]
+             EMM.insertWithKey f (k 2) 3 emm @?=
+                EMM.fromList [(k 1, 1), (k 2, 14)]
 
       describe "Level 2" $ do
         it "creates a value in an empty EMM" $
-           EMM.insertWithKey undef (1 :& K 1) 1 EMM.empty @?=
-                  (EMM.fromList [(1 :& K 1, 1)]
-                           :: EnumMapMap (Int :& K Int) Int)
+           EMM.insertWithKey undef (ID2 1 :& k 1) 1 EMM.empty @?=
+                  (EMM.fromList [(ID2 1 :& k 1, 1)]
+                           :: EnumMapMap (ID2 :& K Int) Int)
         it "adds another value to an EMM on level 1" $
            let
-               emm :: EnumMapMap (Int :& K Int) Int
-               emm = EMM.fromList [(1 :& K 2, 2)]
+               emm :: EnumMapMap (ID2 :& K Int) Int
+               emm = EMM.fromList [(ID2 1 :& k 2, 2)]
            in
-             EMM.insertWithKey undef (1 :& K 1) 1 emm @?=
-                EMM.fromList [(1 :& K 1, 1), (1 :& K 2, 2)]
+             EMM.insertWithKey undef (ID2 1 :& k 1) 1 emm @?=
+                EMM.fromList [(ID2 1 :& K 1, 1), (ID2 1 :& K 2, 2)]
         it "adds another value to an EMM on level 2" $
            let
-               emm :: EnumMapMap (Int :& K Int) Int
-               emm = EMM.fromList [(1 :& K 1, 1)]
+               emm :: EnumMapMap (ID2 :& K Int) Int
+               emm = EMM.fromList [(ID2 1 :& k 1, 1)]
            in
-             EMM.insertWithKey undef (2 :& K 2) 2 emm @?=
-                EMM.fromList [(1 :& K 1, 1), (2 :& K 2, 2)]
+             EMM.insertWithKey undef (ID2 2 :& k 2) 2 emm @?=
+                EMM.fromList [(ID2 1 :& K 1, 1), (ID2 2 :& K 2, 2)]
         it "applies the function when overwriting" $
            let emm :: EnumMapMap (Int :& K Int) Int
-               emm = EMM.fromList [(2 :& K 3, 1), (2 :& K 4, 5)]
+               emm = EMM.fromList [((2 :: Int) :& K 3, 1), ((2 :: Int) :& K 4, 5)]
                f (k1 :& K k2) o n = (k1 + k2) * (o + n)
            in
-             EMM.insertWithKey f (2 :& K 4) 3 emm @?=
-                EMM.fromList [(2 :& K 3, 1), (2 :& K 4, 48)]
+             EMM.insertWithKey f (2 :& k 4) 3 emm @?=
+                EMM.fromList [((2 :: Int) :& K 3, 1), ((2 :: Int) :& K 4, 48)]
 
     describe "delete" $ do
       describe "leaves no empty subtrees" $ do
-        prop "Full key" $ \(k :: ID3 :& ID2 :& K ID1) l ->
-          not $ EMM.emptySubTrees $ EMM.delete k $ (EMM.fromList l :: TestEmm3)
-        prop "2 dimensional key" $ \(k :: ID3 :& K ID2) l ->
-          not $ EMM.emptySubTrees $ EMM.delete k $ (EMM.fromList l :: TestEmm3)
-        prop "1 dimensional key" $ \(k :: K ID3) l ->
-          not $ EMM.emptySubTrees $ EMM.delete k $ (EMM.fromList l :: TestEmm3)
+        prop "Full key" $ \(key :: ID3 :& ID2 :& K ID1) l ->
+          not $ EMM.emptySubTrees $ EMM.delete key $ (EMM.fromList l :: TestEmm3)
+        prop "2 dimensional key" $ \(key :: ID3 :& K ID2) l ->
+          not $ EMM.emptySubTrees $ EMM.delete key $ (EMM.fromList l :: TestEmm3)
+        prop "1 dimensional key" $ \(key :: K ID3) l ->
+          not $ EMM.emptySubTrees $ EMM.delete key $ (EMM.fromList l :: TestEmm3)
 
     describe "alter" $ do
       let f b1 b2 n v = case v of
@@ -218,8 +249,8 @@ main =
                           Just v' -> case b1 of
                                        True  -> Just $ if b2 then v' else n
                                        False -> Nothing
-      prop "leaves no empty subtrees" $ \k l b1 b2 n ->
-          not $ EMM.emptySubTrees $ EMM.alter (f b1 b2 n) k $
+      prop "leaves no empty subtrees" $ \key l b1 b2 n ->
+          not $ EMM.emptySubTrees $ EMM.alter (f b1 b2 n) key $
                   (EMM.fromList l :: TestEmm3)
 
     describe "foldrWithKey" $ do

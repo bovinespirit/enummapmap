@@ -153,7 +153,13 @@ type family Plus k1 k2 :: *
 type instance Plus (k1 :& t) k2 = k1 :& Plus t k2
 
 class SubKey k1 k2 v where
+    -- k1 should be a prefix of k2.  If @k1 ~ k2@ then the 'Result' will be @v@.
     type Result k1 k2 v :: *
+    -- | An 'EnumMapMap' with one element
+    --
+    -- > singleton (5 :& K 3) "a" == fromList [(5 :& K 3, "a")]
+    -- > singleton (K 5) $ singleton (K 2) "a" == fromList [(5 :& K 3, "a")]
+    singleton :: k1 -> Result k1 k2 v -> EnumMapMap k2 v
     -- | Lookup up the value at a key in the 'EnumMapMap'.
     --
     -- > emm = fromList [(3 :& K 1, "a")]
@@ -168,6 +174,18 @@ class SubKey k1 k2 v where
     --
     lookup :: (IsKey k1, IsKey k2) =>
               k1 -> EnumMapMap k2 v -> Maybe (Result k1 k2 v)
+    -- | Insert a new key\/value pair into the 'EnumMapMap'.  Can also insert submaps.
+    insert :: (IsKey k1, IsKey k2) =>
+               k1 -> Result k1 k2 v -> EnumMapMap k2 v -> EnumMapMap k2 v
+    -- | Insert with a combining function.  Can also insert submaps.
+    insertWith :: (IsKey k1, IsKey k2) =>
+                  (Result k1 k2 v -> Result k1 k2 v -> Result k1 k2 v)
+               -> k1 -> Result k1 k2 v -> EnumMapMap k2 v -> EnumMapMap k2 v
+    insertWith f = insertWithKey (\_ -> f)
+    -- | Insert with a combining function.  Can also insert submaps.
+    insertWithKey :: (IsKey k1, IsKey k2) =>
+                     (k1 -> Result k1 k2 v -> Result k1 k2 v -> Result k1 k2 v)
+                  -> k1 -> Result k1 k2 v -> EnumMapMap k2 v -> EnumMapMap k2 v
     -- | Remove a key and it's value from the 'EnumMapMap'.  If the key is not
     -- present the original 'EnumMapMap' is returned.
     delete :: (IsKey k1, IsKey k2) =>
@@ -176,6 +194,9 @@ class SubKey k1 k2 v where
 instance (Enum k, IsKey t1, IsKey t2, SubKey t1 t2 v) =>
     SubKey (k :& t1) (k :& t2) v where
     type Result (k :& t1) (k :& t2) v = Result t1 t2 v
+
+    singleton (key :& nxt) = KCC . Tip (fromEnum key) . singleton nxt
+
     lookup !(key' :& nxt) (KCC emm) = key `seq` go emm
         where
           go (Bin _ m l r)
@@ -187,6 +208,15 @@ instance (Enum k, IsKey t1, IsKey t2, SubKey t1 t2 v) =>
                  False -> Nothing
           go Nil = Nothing
           key = fromEnum key'
+
+    insert (key :& nxt) val (KCC emm) =
+        KCC $ insertWith_ (insert nxt val) key (singleton nxt val) emm
+
+    insertWithKey f k@(key :& nxt) val (KCC emm) =
+        KCC $ insertWith_ go key (singleton nxt val) emm
+            where
+              go = insertWithKey (\_ -> f k) nxt val
+
     delete !(key :& nxt) (KCC emm) =
         KCC $ alter_ (delete nxt) (fromEnum key) emm
 
@@ -265,19 +295,6 @@ class (Eq k) => IsKey k where
     size :: EnumMapMap k v -> Int
     -- | Is the key present in the 'EnumMapMap'?
     member :: k -> EnumMapMap k v -> Bool
-    -- | An 'EnumMapMap' with one element
-    --
-    -- > singleton (5 :& K 3) "a" == fromList [(5 :& K 3, "a")]
-    singleton :: k -> v -> EnumMapMap k v
-    -- | Insert a new key\/value pair into the 'EnumMapMap'.
-    insert :: k -> v -> EnumMapMap k v -> EnumMapMap k v
-    -- | Insert with a combining function.
-    insertWith :: (v -> v -> v)
-                  -> k -> v -> EnumMapMap k v -> EnumMapMap k v
-    insertWith f = insertWithKey (\_ -> f)
-    -- | Insert with a combining function.
-    insertWithKey :: (k -> v -> v -> v)
-                  -> k -> v -> EnumMapMap k v -> EnumMapMap k v
     -- | The expression (@'alter' f k emm@) alters the value at @k@, or absence thereof.
     -- 'alter' can be used to insert, delete, or update a value in an 'EnumMapMap'.
     alter :: (Maybe v -> Maybe v) -> k -> EnumMapMap k v -> EnumMapMap k v
@@ -293,10 +310,11 @@ class (Eq k) => IsKey k where
     -- binary operator.
     foldrWithKey :: (k -> v -> t -> t) -> t -> EnumMapMap k v -> t
     -- |  Convert the 'EnumMapMap' to a list of key\/value pairs.
-    toList :: EnumMapMap k v -> [(k, v)]
+    toList :: SubKey k k v =>
+              EnumMapMap k v -> [(k, v)]
     toList = foldrWithKey (\k x xs -> (k, x):xs) []
     -- | Create a 'EnumMapMap' from a list of key\/value pairs.
-    fromList :: [(k, v)] -> EnumMapMap k v
+    fromList :: (SubKey k k v, Result k k v ~ v) => [(k, v)] -> EnumMapMap k v
     fromList = foldlStrict (\t (k, x) -> insert k x t) empty
     -- | List of elements in ascending order of keys
     elems :: EnumMapMap k v -> [v]
@@ -399,16 +417,6 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
                                     False -> False
                    Nil         -> False
           key = fromEnum key'
-
-    singleton (key :& nxt) = KCC . Tip (fromEnum key) . singleton nxt
-
-    insert (key :& nxt) val (KCC emm)
-        = KCC $ insertWith_ (insert nxt val) key (singleton nxt val) emm
-
-    insertWithKey f k@(key :& nxt) val (KCC emm) =
-        KCC $ insertWith_ go key (singleton nxt val) emm
-            where
-              go = insertWithKey (\_ -> f k) nxt val
 
     alter f !(key :& nxt) (KCC emm) =
         KCC $ alter_ (alter f nxt) (fromEnum key) emm

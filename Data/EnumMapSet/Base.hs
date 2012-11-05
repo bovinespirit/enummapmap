@@ -29,6 +29,7 @@ module Data.EnumMapSet.Base (
             empty,
             singleton,
             insert,
+            insertSub,
             delete,
             -- * Combine
             union,
@@ -135,14 +136,6 @@ instance (Enum k, Eq k) => IsKey (S k) where
           go (Tip y bm) = prefixOf key == y && bitmapOf key .&. bm /= 0
           go Nil = False
           key = fromEnum key'
-
-    singleton (S key') _
-        = key `seq` KSC $ Tip (prefixOf key) (bitmapOf key)
-          where key = fromEnum key'
-
-    insert (S key') _ (KSC ems)
-        = key `seq` KSC $ insertBM (prefixOf key) (bitmapOf key) ems
-          where key = fromEnum key'
 
     foldrWithKey f init (KSC ems)
         = case ems of Bin _ m l r | m < 0 -> go (go init l) r
@@ -264,8 +257,6 @@ instance (Enum k, Eq k) => IsKey (S k) where
           go Nil Nil = False
           go _   _   = True
 
-    insertWith = undefined
-    insertWithKey = undefined
     alter = undefined
     foldr = undefined
     map = undefined
@@ -311,11 +302,17 @@ lookup = EMM.lookup
 empty :: (IsKey k) => EnumMapSet k
 empty = EMM.empty
 
-singleton :: (IsKey k) => k -> EnumMapSet k
+singleton :: (IsKey k, EMM.SubKey k k (), EMM.Result k k () ~ ()) =>
+             k -> EnumMapSet k
 singleton !key = EMM.singleton key ()
 
-insert :: (IsKey k) => k -> EnumMapSet k -> EnumMapSet k
+insert :: (IsKey k, EMM.SubKey k k (), EMM.Result k k () ~ ()) =>
+          k -> EnumMapSet k -> EnumMapSet k
 insert !key = EMM.insert key ()
+
+insertSub :: (IsKey k1, IsKey k2, EMM.SubKey k1 k2 ()) =>
+             k1 -> EMM.Result k1 k2 () -> EnumMapSet k2 -> EnumMapSet k2
+insertSub !key = EMM.insert key
 
 delete :: (EMM.SubKey k1 k2 (), IsKey k1, IsKey k2) =>
           k1 -> EnumMapSet k2 -> EnumMapSet k2
@@ -331,7 +328,7 @@ foldr f = EMM.foldrWithKey go
 --
 -- It's worth noting that the size of the result may be smaller if,
 -- for some @(x,y)@, @x \/= y && f x == f y@
-map :: (IsKey k1, IsKey k2) =>
+map :: (IsKey k1, IsKey k2, EMM.SubKey k2 k2 (), EMM.Result k2 k2 () ~ ()) =>
        (k1 -> k2) -> EnumMapSet k1 -> EnumMapSet k2
 map f = fromList . List.map f . toList
 
@@ -348,7 +345,8 @@ intersection = EMM.intersection
   Lists
 ---------------------------------------------------------------------}
 
-fromList :: IsKey k => [k] -> EnumMapSet k
+fromList :: (IsKey k, EMM.SubKey k k (), EMM.Result k k () ~ ()) =>
+            [k] -> EnumMapSet k
 fromList xs
     = foldlStrict (\t x -> insert x t) empty xs
 
@@ -369,6 +367,9 @@ instance EMM.HasSKey (S k) where
 
 instance (Enum k1, k1 ~ k2) => EMM.SubKey (S k1) (k2 :& t2) () where
     type Result (S k1) (k2 :& t2) () = EnumMapSet t2
+
+    singleton !(S key) = EMM.KCC . EMM.Tip (fromEnum key)
+
     lookup (S key') (EMM.KCC emm) = key `seq` go emm
         where
           go (EMM.Bin _ m l r)
@@ -380,6 +381,21 @@ instance (Enum k1, k1 ~ k2) => EMM.SubKey (S k1) (k2 :& t2) () where
                  False -> Nothing
           go EMM.Nil = Nothing
           key = fromEnum key'
+
+    insert (S key') val (EMM.KCC emm) = key `seq` EMM.KCC $ go emm
+        where
+          go t =
+              case t of
+                EMM.Bin p m l r
+                    | nomatch key p m -> EMM.join key (EMM.Tip key val) p t
+                    | zero key m      -> EMM.Bin p m (go l) r
+                    | otherwise       -> EMM.Bin p m l (go r)
+                EMM.Tip ky _
+                    | key == ky       -> EMM.Tip key val
+                    | otherwise       -> EMM.join key (EMM.Tip key val) ky t
+                EMM.Nil               -> EMM.Tip key val
+          key = fromEnum key'
+
     delete (S key') (EMM.KCC emm) = key `seq` EMM.KCC $ go emm
         where
           go t = case t of
@@ -391,28 +407,39 @@ instance (Enum k1, k1 ~ k2) => EMM.SubKey (S k1) (k2 :& t2) () where
                    EMM.Nil                           -> EMM.Nil
           key = fromEnum key'
 
+    insertWith = undefined
+    insertWithKey = undefined
+
 instance (Enum k) => EMM.SubKey (S k) (S k) () where
-    type Result (S k) (S k) () = Bool
+    type Result (S k) (S k) () = ()
+    singleton !(S key') _ = KSC $! Tip (prefixOf key) (bitmapOf key)
+          where key = fromEnum key'
     lookup = undefined
+    insert (S key') _ (KSC ems) =
+        key `seq` KSC $ insertBM (prefixOf key) (bitmapOf key) ems
+            where key = fromEnum key'
     delete !(S key') (KSC ems) =
         key `seq` KSC $ deleteBM (prefixOf key) (bitmapOf key) ems
           where key = fromEnum key'
+
+    insertWith = undefined
+    insertWithKey = undefined
 
 {---------------------------------------------------------------------
   Helper functions
 ---------------------------------------------------------------------}
 
 insertBM :: Prefix -> BitMap -> EMS k -> EMS k
-insertBM !kx !bm t
-    = case t of
-    Bin p m l r
-      | nomatch kx p m -> join kx (Tip kx bm) p t
-      | zero kx m      -> Bin p m (insertBM kx bm l) r
-      | otherwise      -> Bin p m l (insertBM kx bm r)
-    Tip kx' bm'
-      | kx' == kx -> Tip kx' (bm .|. bm')
-      | otherwise -> join kx (Tip kx bm) kx' t
-    Nil -> Tip kx bm
+insertBM !kx !bm t =
+    case t of
+      Bin p m l r
+          | nomatch kx p m -> join kx (Tip kx bm) p t
+          | zero kx m      -> Bin p m (insertBM kx bm l) r
+          | otherwise      -> Bin p m l (insertBM kx bm r)
+      Tip kx' bm'
+          | kx' == kx -> Tip kx' (bm .|. bm')
+          | otherwise -> join kx (Tip kx bm) kx' t
+      Nil -> Tip kx bm
 
 deleteBM :: Prefix -> BitMap -> EMS k -> EMS k
 deleteBM !kx !bm t

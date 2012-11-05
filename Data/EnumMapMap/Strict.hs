@@ -144,33 +144,6 @@ instance (Enum k, Eq k) => IsKey (K k) where
                    Nil         -> False
           key = fromEnum key'
 
-    singleton !(K key) !val = KEC $ Tip (fromEnum key) val
-
-    insert !(K key') !val (KEC emm) = KEC $ go emm
-        where
-          go t = case t of
-                   Bin p m l r
-                       | nomatch key p m -> join key (Tip key val) p t
-                       | zero key m      -> Bin p m (go l) r
-                       | otherwise       -> Bin p m l (go r)
-                   Tip ky _
-                       | key == ky       -> Tip key val
-                       | otherwise       -> join key (Tip key val) ky t
-                   Nil                   -> Tip key val
-          key = fromEnum key'
-
-    insertWithKey f k@(K key') !val (KEC emm) = KEC $ go emm
-        where go t = case t of
-                     Bin p m l r
-                         | nomatch key p m -> join key (Tip key val) p t
-                         | zero key m      -> Bin p m (go l) r
-                         | otherwise       -> Bin p m l (go r)
-                     Tip ky y
-                         | key == ky       -> Tip key $! (f k val y)
-                         | otherwise       -> join key (Tip key val) ky t
-                     Nil                   -> Tip key val
-              key = fromEnum key'
-
     alter f !(K key') (KEC emm) = KEC $ go emm
         where
           go t = case t of
@@ -276,12 +249,20 @@ instance IsSplit (k :& t) Z where
 
 instance (Enum k1, k1 ~ k2) => SubKey (K k1) (k2 :& t2) v where
     type Result (K k1) (k2 :& t2) v = EnumMapMap t2 v
+    singleton !(K key) = KCC . Tip (fromEnum key)
     lookup (K key') (KCC emm) = lookup_ (fromEnum key') emm
+    insert !(K key') val (KCC emm) = KCC $ insert_ (fromEnum key') val emm
+    insertWithKey f !k@(K key') val (KCC emm) =
+        KCC $ insertWK (f k) (fromEnum key') val emm
     delete !(K key') (KCC emm) = KCC $ delete_ (fromEnum key') emm
 
 instance (Enum k) => SubKey (K k) (K k) v where
     type Result (K k) (K k) v = v
+    singleton !(K key) !val = KEC $! Tip (fromEnum key) val
     lookup (K key') (KEC emm) = lookup_ (fromEnum key') emm
+    insert !(K key') !val (KEC emm) = KEC $ insert_ (fromEnum key') val emm
+    insertWithKey f !k@(K key') !val (KEC emm) =
+        KEC $ insertWK (f k) (fromEnum key') val emm
     delete !(K key') (KEC emm) = KEC $ delete_ (fromEnum key') emm
 
 lookup_ :: Key -> EMM k v -> Maybe v
@@ -292,6 +273,34 @@ lookup_ !key emm =
           | otherwise  -> lookup_ key r
       Tip kx x         -> if kx == key then Just x else Nothing
       Nil              -> Nothing
+
+insert_ :: Key -> v -> EMM k v -> EMM k v
+insert_ !key val = go
+    where
+      go emm =
+          case emm of
+            Bin p m l r
+                | nomatch key p m -> join key (Tip key val) p emm
+                | zero key m      -> Bin p m (go l) r
+                | otherwise       -> Bin p m l (go r)
+            Tip ky _
+                | key == ky       -> Tip key val
+                | otherwise       -> join key (Tip key val) ky emm
+            Nil                   -> Tip key val
+
+insertWK :: (v -> v -> v) -> Key -> v -> EMM k v -> EMM k v
+insertWK f !key val = go
+    where
+      go emm =
+          case emm of
+            Bin p m l r
+                | nomatch key p m -> join key (Tip key val) p emm
+                | zero key m      -> Bin p m (go l) r
+                | otherwise       -> Bin p m l (go r)
+            Tip ky y
+                | key == ky       -> Tip key (f val y)
+                | otherwise       -> join key (Tip key val) ky emm
+            Nil                   -> Tip key val
 
 delete_ :: Key -> EMM k v -> EMM k v
 delete_ !key emm =

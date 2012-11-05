@@ -18,7 +18,7 @@ type TestSet2 = EnumMapSet (Int :& S Int)
 type TestSet3 = EnumMapSet (Int :& Int :& S Int)
 
 list2l1 :: [Int] -> [S Int]
-list2l1 = map (\k -> S k)
+list2l1 = map S
 
 list2l2 :: Int -> [Int] -> [Int :& S Int]
 list2l2 k1 = map (\k -> k :& S k1)
