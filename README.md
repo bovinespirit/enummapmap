@@ -33,13 +33,15 @@ im = EMM.singleton (K 3) "Three"
 im' = EMM.insert (K 5) "Five" im
 ```
 
-The code ensures that only the root EnumMap can be empty.  There are lazy and strict variants.  Both are strict in the
-keys, but the strict version is strict on values as well.  The data structures are the same however the key types are
-different for the strict and lazy versions so strict operations can be performed on a lazy EnumMapMap.
+The code ensures that only the root EnumMap can be empty.  There are lazy and
+strict variants.  Both are strict in the keys, but the strict version is strict
+on values as well.  The data structures are the same however the key types are
+different for the strict and lazy versions so strict operations can be performed
+on a lazy EnumMapMap.
 
 _Subtrees_
 
-Whole subtrees can be operated on at a time.  Currently 'insert' is not supported.
+Whole subtrees can be operated on at a time.
 ```haskell
 
 tree = EMM.lookup (o &: K t) $  orchards
@@ -54,13 +56,13 @@ There is also 'EnumMapSet'.  The terminating key type is S instead of K.
 
 TODO:
 
-- Finish operations on subtrees: insert, insertWith, alter
+- Finish operations on subtrees: alter
 - More documentation
 - More tests
 - EnumMapMap & EnumMapSet - intersectBy
 - Check that Strict really is strict and Lazy really is lazy.
 - More functions - mapMaybe, update, mergeWithKey,  foldr'
-- Optimisation
 - Benchmarks
+- Optimisation
 - Replace d1..d10 with numbers
 
