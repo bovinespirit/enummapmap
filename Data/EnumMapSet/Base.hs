@@ -127,16 +127,6 @@ instance (Enum k, Eq k) => IsKey (S k) where
           go (Tip _ bm)    = bitcount 0 bm
           go Nil           = 0
 
-    member !(S key') (KSC ems) = key `seq` go ems
-        where
-          go (Bin p m l r)
-              | nomatch key p m = False
-              | zero key m      = go l
-              | otherwise       = go r
-          go (Tip y bm) = prefixOf key == y && bitmapOf key .&. bm /= 0
-          go Nil = False
-          key = fromEnum key'
-
     foldrWithKey f init (KSC ems)
         = case ems of Bin _ m l r | m < 0 -> go (go init l) r
                                   | otherwise -> go (go init r) l
@@ -286,7 +276,8 @@ null = EMM.null
 size :: (IsKey k) => EnumMapSet k -> Int
 size = EMM.size
 
-member ::(IsKey k) => k -> EnumMapSet k -> Bool
+member ::(EMM.SubKey k1 k2 (), IsKey k1, IsKey k2) =>
+         k1 -> EnumMapSet k2 -> Bool
 member = EMM.member
 
 -- | Lookup a subtree in an 'EnumMapSet'.
@@ -368,6 +359,16 @@ instance EMM.HasSKey (S k) where
 instance (Enum k1, k1 ~ k2) => EMM.SubKey (S k1) (k2 :& t2) () where
     type Result (S k1) (k2 :& t2) () = EnumMapSet t2
 
+    member !(S key') (EMM.KCC emm) = key `seq` go emm
+        where
+          go t = case t of
+               EMM.Bin _ m l r -> case zero key m of
+                                    True  -> go l
+                                    False -> go r
+               EMM.Tip kx _    -> key == kx
+               EMM.Nil         -> False
+          key = fromEnum key'
+
     singleton !(S key) = EMM.KCC . EMM.Tip (fromEnum key)
 
     lookup (S key') (EMM.KCC emm) = key `seq` go emm
@@ -412,6 +413,15 @@ instance (Enum k1, k1 ~ k2) => EMM.SubKey (S k1) (k2 :& t2) () where
 
 instance (Enum k) => EMM.SubKey (S k) (S k) () where
     type Result (S k) (S k) () = ()
+    member !(S key') (KSC ems) = key `seq` go ems
+        where
+          go (Bin p m l r)
+              | nomatch key p m = False
+              | zero key m      = go l
+              | otherwise       = go r
+          go (Tip y bm) = prefixOf key == y && bitmapOf key .&. bm /= 0
+          go Nil = False
+          key = fromEnum key'
     singleton !(S key') _ = KSC $! Tip (prefixOf key) (bitmapOf key)
           where key = fromEnum key'
     lookup = undefined

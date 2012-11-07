@@ -133,16 +133,6 @@ instance (Enum k, Eq k) => IsKey (K k) where
           go (Tip _ _)     = 1
           go Nil           = 0
 
-    member !(K key') (KEC emm) = go emm
-        where
-          go t = case t of
-                   Bin _ m l r -> case zero key m of
-                                    True  -> go l
-                                    False -> go r
-                   Tip kx _    -> key == kx
-                   Nil         -> False
-          key = fromEnum key'
-
     alter f !(K key') (KEC emm) = KEC $ go emm
         where
           go t = case t of
@@ -248,6 +238,7 @@ instance IsSplit (k :& t) Z where
 
 instance (Enum k1, k1 ~ k2) => SubKey (K k1) (k2 :& t2) v where
     type Result (K k1) (k2 :& t2) v = EnumMapMap t2 v
+    member (K key) (KCC emm) = member_ (fromEnum key) emm
     singleton !(K key) = KCC . Tip (fromEnum key)
     lookup !(K key') (KCC emm) = lookup_ (fromEnum key') emm
     insert !(K key') val (KCC emm) = KCC $ insert_ (fromEnum key') val emm
@@ -257,12 +248,23 @@ instance (Enum k1, k1 ~ k2) => SubKey (K k1) (k2 :& t2) v where
 
 instance (Enum k) => SubKey (K k) (K k) v where
     type Result (K k) (K k) v = v
+    member (K key) (KEC emm) = member_ (fromEnum key) emm
     singleton !(K key) = KEC . Tip (fromEnum key)
     lookup (K key') (KEC emm) = lookup_ (fromEnum key') emm
     insert !(K key') val (KEC emm) = KEC $ insert_ (fromEnum key') val emm
     insertWithKey f !k@(K key') val (KEC emm) =
         KEC $ insertWK (f k) (fromEnum key') val emm
     delete !(K key') (KEC emm) = KEC $ delete_ (fromEnum key') emm
+
+member_ :: Key -> EMM k v -> Bool
+member_ key emm = go emm
+    where
+      go t = case t of
+               Bin _ m l r -> case zero key m of
+                                True  -> go l
+                                False -> go r
+               Tip kx _    -> key == kx
+               Nil         -> False
 
 lookup_ :: Key -> EMM k v -> Maybe v
 lookup_ !key emm =

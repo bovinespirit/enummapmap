@@ -153,13 +153,24 @@ type family Plus k1 k2 :: *
 type instance Plus (k1 :& t) k2 = k1 :& Plus t k2
 
 class SubKey k1 k2 v where
-    -- k1 should be a prefix of k2.  If @k1 ~ k2@ then the 'Result' will be @v@.
+    -- | k1 should be a prefix of k2.  If @k1 ~ k2@ then the 'Result' will be
+    -- @v@.
+    --
+    -- > Result (K ID1) (ID1 :& K ID2) v        ~ EnumMapMap (K ID2) v
+    -- > Result (ID1 :& K ID2) (ID1 :& K ID2) v ~ v
+    -- > Result (ID1 :& K ID2) (K ID1) v        -- ERROR
+    -- > Result (ID2 :& K ID1) (ID1 :& K ID2)   -- ERROR
     type Result k1 k2 v :: *
+
+    -- | Is the key present in the 'EnumMapMap'?
+    member :: k1 -> EnumMapMap k2 v -> Bool
+
     -- | An 'EnumMapMap' with one element
     --
     -- > singleton (5 :& K 3) "a" == fromList [(5 :& K 3, "a")]
     -- > singleton (K 5) $ singleton (K 2) "a" == fromList [(5 :& K 3, "a")]
     singleton :: k1 -> Result k1 k2 v -> EnumMapMap k2 v
+
     -- | Lookup up the value at a key in the 'EnumMapMap'.
     --
     -- > emm = fromList [(3 :& K 1, "a")]
@@ -174,51 +185,26 @@ class SubKey k1 k2 v where
     --
     lookup :: (IsKey k1, IsKey k2) =>
               k1 -> EnumMapMap k2 v -> Maybe (Result k1 k2 v)
+
     -- | Insert a new key\/value pair into the 'EnumMapMap'.  Can also insert submaps.
     insert :: (IsKey k1, IsKey k2) =>
                k1 -> Result k1 k2 v -> EnumMapMap k2 v -> EnumMapMap k2 v
+
     -- | Insert with a combining function.  Can also insert submaps.
     insertWith :: (IsKey k1, IsKey k2) =>
                   (Result k1 k2 v -> Result k1 k2 v -> Result k1 k2 v)
                -> k1 -> Result k1 k2 v -> EnumMapMap k2 v -> EnumMapMap k2 v
     insertWith f = insertWithKey (\_ -> f)
+
     -- | Insert with a combining function.  Can also insert submaps.
     insertWithKey :: (IsKey k1, IsKey k2) =>
                      (k1 -> Result k1 k2 v -> Result k1 k2 v -> Result k1 k2 v)
                   -> k1 -> Result k1 k2 v -> EnumMapMap k2 v -> EnumMapMap k2 v
+
     -- | Remove a key and it's value from the 'EnumMapMap'.  If the key is not
     -- present the original 'EnumMapMap' is returned.
     delete :: (IsKey k1, IsKey k2) =>
               k1 -> EnumMapMap k2 v -> EnumMapMap k2 v
-
-instance (Enum k, IsKey t1, IsKey t2, SubKey t1 t2 v) =>
-    SubKey (k :& t1) (k :& t2) v where
-    type Result (k :& t1) (k :& t2) v = Result t1 t2 v
-
-    singleton (key :& nxt) = KCC . Tip (fromEnum key) . singleton nxt
-
-    lookup !(key' :& nxt) (KCC emm) = key `seq` go emm
-        where
-          go (Bin _ m l r)
-             | zero key m = go l
-             | otherwise = go r
-          go (Tip kx x)
-             = case kx == key of
-                 True -> lookup nxt x
-                 False -> Nothing
-          go Nil = Nothing
-          key = fromEnum key'
-
-    insert (key :& nxt) val (KCC emm) =
-        KCC $ insertWith_ (insert nxt val) key (singleton nxt val) emm
-
-    insertWithKey f k@(key :& nxt) val (KCC emm) =
-        KCC $ insertWith_ go key (singleton nxt val) emm
-            where
-              go = insertWithKey (\_ -> f k) nxt val
-
-    delete !(key :& nxt) (KCC emm) =
-        KCC $ alter_ (delete nxt) (fromEnum key) emm
 
 class HasSKey k where
     type Skey k :: *
@@ -293,8 +279,6 @@ class (Eq k) => IsKey k where
     null :: EnumMapMap k v -> Bool
     -- | Number of elements in the 'EnumMapMap'.
     size :: EnumMapMap k v -> Int
-    -- | Is the key present in the 'EnumMapMap'?
-    member :: k -> EnumMapMap k v -> Bool
     -- | The expression (@'alter' f k emm@) alters the value at @k@, or absence thereof.
     -- 'alter' can be used to insert, delete, or update a value in an 'EnumMapMap'.
     alter :: (Maybe v -> Maybe v) -> k -> EnumMapMap k v -> EnumMapMap k v
@@ -322,7 +306,7 @@ class (Eq k) => IsKey k where
     -- | List of keys
     keys :: EnumMapMap k v -> [k]
     keys = foldrWithKey (\k _ ks -> k:ks) []
-    -- | The 'Data.EnumMapSet' of the keys.  'EnumMapMap' keys can be converted into
+   -- | The 'Data.EnumMapSet' of the keys. 'EnumMapMap' keys can be converted into
     -- 'Data.EnumMapSet' keys using 'toS', and back again using 'toK'.
     keysSet :: (HasSKey k) => EnumMapMap k v -> EnumMapMap (Skey k) ()
     -- | The (left-biased) union of two 'EnumMapMap's.
@@ -370,6 +354,47 @@ class (Eq k) => IsKey k where
     equal ::  Eq v => EnumMapMap k v -> EnumMapMap k v -> Bool
     nequal :: Eq v => EnumMapMap k v -> EnumMapMap k v -> Bool
 
+instance (Enum k, IsKey t1, IsKey t2, SubKey t1 t2 v) =>
+    SubKey (k :& t1) (k :& t2) v where
+    type Result (k :& t1) (k :& t2) v = Result t1 t2 v
+
+    member !(key' :& nxt) (KCC emm) = key `seq` go emm
+        where
+          go t = case t of
+                   Bin _ m l r -> case zero key m of
+                                    True  -> go l
+                                    False -> go r
+                   Tip kx x    -> case key == kx of
+                                    True  -> member nxt x
+                                    False -> False
+                   Nil         -> False
+          key = fromEnum key'
+
+    singleton (key :& nxt) = KCC . Tip (fromEnum key) . singleton nxt
+
+    lookup !(key' :& nxt) (KCC emm) = key `seq` go emm
+        where
+          go (Bin _ m l r)
+             | zero key m = go l
+             | otherwise = go r
+          go (Tip kx x)
+             = case kx == key of
+                 True -> lookup nxt x
+                 False -> Nothing
+          go Nil = Nothing
+          key = fromEnum key'
+
+    insert (key :& nxt) val (KCC emm) =
+        KCC $ insertWith_ (insert nxt val) key (singleton nxt val) emm
+
+    insertWithKey f k@(key :& nxt) val (KCC emm) =
+        KCC $ insertWith_ go key (singleton nxt val) emm
+            where
+              go = insertWithKey (\_ -> f k) nxt val
+
+    delete !(key :& nxt) (KCC emm) =
+        KCC $ alter_ (delete nxt) (fromEnum key) emm
+
 instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
     data EnumMapMap (k :& t) v = KCC (EMM k (EnumMapMap t v))
 
@@ -405,18 +430,6 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
           go (Bin _ _ l r) = go l + go r
           go (Tip _ y)     = size y
           go Nil           = 0
-
-    member !(key' :& nxt) (KCC emm) = go emm
-        where
-          go t = case t of
-                   Bin _ m l r -> case zero key m of
-                                    True  -> go l
-                                    False -> go r
-                   Tip kx x    -> case key == kx of
-                                    True  -> member nxt x
-                                    False -> False
-                   Nil         -> False
-          key = fromEnum key'
 
     alter f !(key :& nxt) (KCC emm) =
         KCC $ alter_ (alter f nxt) (fromEnum key) emm
