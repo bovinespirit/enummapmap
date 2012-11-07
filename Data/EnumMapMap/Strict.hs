@@ -221,6 +221,10 @@ instance NFData v => NFData (EnumMapMap (K k) v) where
           go (Tip _ v)     = rnf v
           go (Bin _ _ l r) = go l `seq` go r
 
+instance (NFData k) => NFData (K k)
+    where
+      rnf (K k) = rnf k
+
 instance HasSKey (K k) where
     type Skey (K k) = EMS.S k
     toS (K !k) = EMS.S k
@@ -240,22 +244,23 @@ instance IsSplit (k :& t) Z where
 instance (Enum k1, k1 ~ k2) => SubKey (K k1) (k2 :& t2) v where
     type Result (K k1) (k2 :& t2) v = EnumMapMap t2 v
     member (K key) (KCC emm) = member_ (fromEnum key) emm
-    singleton !(K key) = KCC . Tip (fromEnum key)
+    singleton (K key) = KCC . Tip (fromEnum key)
     lookup (K key') (KCC emm) = lookup_ (fromEnum key') emm
-    insert !(K key') val (KCC emm) = KCC $ insert_ (fromEnum key') val emm
+    insert (K key') val (KCC emm) = KCC $ insert_ (fromEnum key') val emm
     insertWithKey f !k@(K key') val (KCC emm) =
         KCC $ insertWK (f k) (fromEnum key') val emm
     delete !(K key') (KCC emm) = KCC $ delete_ (fromEnum key') emm
-
 instance (Enum k) => SubKey (K k) (K k) v where
     type Result (K k) (K k) v = v
     member (K key) (KEC emm) = member_ (fromEnum key) emm
     singleton !(K key) !val = KEC $! Tip (fromEnum key) val
     lookup (K key') (KEC emm) = lookup_ (fromEnum key') emm
+    {-# INLINE lookup #-}
     insert !(K key') !val (KEC emm) = KEC $ insert_ (fromEnum key') val emm
     insertWithKey f !k@(K key') !val (KEC emm) =
         KEC $ insertWK (f k) (fromEnum key') val emm
     delete !(K key') (KEC emm) = KEC $ delete_ (fromEnum key') emm
+    {-# INLINE delete #-}
 
 member_ :: Key -> EMM k v -> Bool
 member_ key emm = go emm
@@ -268,27 +273,26 @@ member_ key emm = go emm
                Nil         -> False
 
 lookup_ :: Key -> EMM k v -> Maybe v
-lookup_ !key emm =
-    case emm of
-      Bin _ m l r
-          | zero key m -> lookup_ key l
-          | otherwise  -> lookup_ key r
-      Tip kx x         -> if kx == key then Just x else Nothing
-      Nil              -> Nothing
+lookup_ !key emm = go emm
+    where
+      go t = case t of
+               Bin _ m l r
+                   | zero key m -> go l
+                   | otherwise  -> go r
+               Tip kx x         -> if kx == key then Just x else Nothing
+               Nil              -> Nothing
 
 insert_ :: Key -> v -> EMM k v -> EMM k v
-insert_ !key val = go
-    where
-      go emm =
-          case emm of
-            Bin p m l r
-                | nomatch key p m -> join key (Tip key val) p emm
-                | zero key m      -> Bin p m (go l) r
-                | otherwise       -> Bin p m l (go r)
-            Tip ky _
-                | key == ky       -> Tip key val
-                | otherwise       -> join key (Tip key val) ky emm
-            Nil                   -> Tip key val
+insert_ !key !val emm =
+    case emm of
+      Bin p m l r
+          | nomatch key p m -> join key (Tip key val) p emm
+          | zero key m      -> Bin p m (insert_ key val l) r
+          | otherwise       -> Bin p m l (insert_ key val r)
+      Tip ky _
+          | key == ky       -> Tip key val
+          | otherwise       -> join key (Tip key val) ky emm
+      Nil                   -> Tip key val
 
 insertWK :: (v -> v -> v) -> Key -> v -> EMM k v -> EMM k v
 insertWK f !key val = go
@@ -305,11 +309,11 @@ insertWK f !key val = go
             Nil                   -> Tip key val
 
 delete_ :: Key -> EMM k v -> EMM k v
-delete_ !key emm =
-    case emm of
-      Bin p m l r | nomatch key p m -> emm
-                  | zero key m      -> bin p m (delete_ key l) r
-                  | otherwise       -> bin p m l (delete_ key r)
-      Tip ky _    | key == ky       -> Nil
-                  | otherwise       -> emm
-      Nil                           -> Nil
+delete_ !key emm = go emm
+    where go t = case t of
+                   Bin p m l r | nomatch key p m -> t
+                               | zero key m      -> bin p m (go l) r
+                               | otherwise       -> bin p m l (go r)
+                   Tip ky _    | key == ky       -> Nil
+                               | otherwise       -> t
+                   Nil                           -> Nil

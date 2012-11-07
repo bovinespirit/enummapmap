@@ -99,3 +99,16 @@ Test-Suite test-enummapset-intset
                       containers >= 0.4.2,
                       enummapmap
     cpp-options:      -DTESTING
+
+benchmark enummapmap-vs-intmap-bench
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   bench
+    main-is:          IntMapVsEnumMapMap.hs
+    build-depends:    base >= 4.0 && < 5,
+                      criterion,
+                      deepseq >= 1.2 && < 1.4,
+                      containers >= 0.4.2,
+                      mtl,
+                      enummapmap
+    default-language: Haskell2010
+    ghc-options:      -O2

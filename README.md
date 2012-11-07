@@ -57,17 +57,17 @@ There is also 'EnumMapSet'.  The terminating key type is S instead of K.
 _Caveats_
 
 EnumMapMap has grown quite an unwieldy, or at least verbose, API.  See the unit
-tests for details.
+tests for details.  Run the benchmarking suite to see how EnumMapMap compares to
+IntMap for speed.
 
 TODO:
 
 - Finish operations on subtrees: alter
-- More documentation
-- More tests
 - EnumMapMap & EnumMapSet - fromSet, intersectSet?, differenceSet?
 - Check that Strict really is strict and Lazy really is lazy.
 - More functions - mapMaybe, update, mergeWithKey,  foldr'
-- Benchmarks
-- Optimisation
+- More benchmarks and optimising
+- More documentation
+- More tests
 - Replace d1..d10 with numbers
 

@@ -645,6 +645,10 @@ instance (NFData v, NFData (EnumMapMap t v)) => NFData (EnumMapMap (k :& t) v)
             go (Tip _ v)     = rnf v
             go (Bin _ _ l r) = go l `seq` go r
 
+instance (NFData k, NFData t) => NFData (k :& t)
+    where
+      rnf (k :& t) = rnf k `seq` rnf t
+
 {--------------------------------------------------------------------
   Nat conversion
 --------------------------------------------------------------------}

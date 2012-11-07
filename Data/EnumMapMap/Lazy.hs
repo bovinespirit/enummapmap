@@ -220,6 +220,10 @@ instance NFData v => NFData (EnumMapMap (K k) v) where
           go (Tip _ v)     = rnf v
           go (Bin _ _ l r) = go l `seq` go r
 
+instance (NFData k) => NFData (K k)
+    where
+      rnf (K k) = rnf k
+
 instance HasSKey (K k) where
     type Skey (K k) = EMS.S k
     toS (K !k) = EMS.S k
