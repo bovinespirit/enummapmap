@@ -187,7 +187,9 @@ instance (Enum k, Eq k) => IsKey (K k) where
                    Tip k1 $! f (K $ toEnum k1) x1 x2
 
     difference (KEC emm1) (KEC emm2) =
-        KEC $ mergeWithKey' bin (\_ _ -> Nil) id (const Nil) emm1 emm2
+        KEC $ go emm1 emm2
+            where go = mergeWithKey' bin (\_ _ -> Nil) id (const Nil)
+    {-# INLINE difference #-}
     differenceWithKey f (KEC emm1) (KEC emm2) =
         KEC $ mergeWithKey' bin combine id (const Nil) emm1 emm2
             where

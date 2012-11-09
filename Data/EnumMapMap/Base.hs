@@ -543,8 +543,7 @@ foldrWithKey_ f z = \emm ->
 {-# INLINE foldrWithKey_ #-}
 
 -- | See 'IntMap' documentation for an explanation of 'mergeWithKey''.
-mergeWithKey' :: (Enum a) =>
-                 (Prefix -> Mask -> EMM a v3 -> EMM a v3 -> EMM a v3)
+mergeWithKey' :: (Prefix -> Mask -> EMM a v3 -> EMM a v3 -> EMM a v3)
               -> (EMM a v1 -> EMM a v2 -> EMM a v3)
               -> (EMM a v1 -> EMM a v3)
               -> (EMM a v2 -> EMM a v3)
@@ -570,7 +569,7 @@ mergeWithKey' bin' f g1 g2 = go
                 | zero k2 m1 = bin' p1 m1 (merge t2 k2 l1) (g1 r1)
                 | otherwise  = bin' p1 m1 (g1 l1) (merge t2 k2 r1)
             merge t2 k2 t1@(Tip k1 _)
-                | k1 == k2 = f t1 t2
+                | k1 == k2  = f t1 t2
                 | otherwise = maybe_join k1 (g1 t1) k2 (g2 t2)
             merge t2 _  Nil = g2 t2
 
