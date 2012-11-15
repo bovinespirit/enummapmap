@@ -67,6 +67,7 @@ module Data.EnumMapMap.Strict (
             intersection,
             intersectionWith,
             intersectionWithKey,
+            intersectSet,
             -- * Traversal
             -- ** Map
             map,
@@ -179,29 +180,7 @@ instance (Enum k, Eq k) => IsKey (K k) where
                 computeBm !acc (Bin _ _ l' r') = computeBm (computeBm acc l') r'
                 computeBm !acc (Tip kx _)      = acc .|. EMS.bitmapOf kx
                 computeBm !acc Nil             = acc
-
-    fromSet f (EMS.KSC emm) = KEC $ go emm
-        where
-          go EMS.Nil = Nil
-          go (EMS.Bin p m l r) = Bin p m (go l) (go r)
-          go (EMS.Tip key bm) = buildTree f key bm (EMS.suffixBitMask + 1)
-          buildTree g !prefix !bmask bits =
-              case bits of
-                0 -> Tip prefix $! (g $! K $ toEnum prefix)
-                _ -> case intFromNat ((natFromInt bits) `shiftRL` 1) of
-                       bits2 | bmask .&. ((1 `shiftLL` bits2) -1) == 0 ->
-                                 buildTree g (prefix + bits2)
-                                               (bmask `shiftRL` bits2) bits2
-                             | (bmask `shiftRL` bits2) .&.
-                               ((1 `shiftLL` bits2) - 1) == 0 ->
-                                   buildTree g prefix bmask bits2
-                             | otherwise ->
-                                 Bin prefix bits2
-                                         (buildTree g prefix bmask bits2)
-                                         (buildTree g (prefix + bits2)
-                                          (bmask `shiftRL` bits2)
-                                          bits2)
-
+    fromSet f (EMS.KSC emm) = KEC $ fromSet_ (f . K . toEnum) emm
     union (KEC emm1) (KEC emm2) = KEC $ mergeWithKey' Bin const id id emm1 emm2
     unionWithKey f (KEC emm1) (KEC emm2) =
         KEC $ mergeWithKey' Bin go id id emm1 emm2
@@ -280,12 +259,16 @@ instance (Enum k) => SubKey (K k) (K k) v where
     member (K key) (KEC emm) = member_ (fromEnum key) emm
     singleton !(K key) !val = KEC $! Tip (fromEnum key) val
     lookup (K key') (KEC emm) = lookup_ (fromEnum key') emm
-    {-# INLINE lookup #-}
     insert !(K key') !val (KEC emm) = KEC $ insert_ (fromEnum key') val emm
     insertWithKey f !k@(K key') !val (KEC emm) =
         KEC $ insertWK (f k) (fromEnum key') val emm
     delete !(K key') (KEC emm) = KEC $ delete_ (fromEnum key') emm
-    {-# INLINE delete #-}
+
+instance (Enum k1, k1 ~ k2) => SubKeyS (k1 :& t) (EMS.S k2) where
+    intersectSet (KCC emm) (EMS.KSC ems) = KCC $ intersectSet_ emm ems
+
+instance (Enum k) => SubKeyS (K k) (EMS.S k) where
+    intersectSet (KEC emm) (EMS.KSC ems) = KEC $ intersectSet_ emm ems
 
 member_ :: Key -> EMM k v -> Bool
 member_ key emm = go emm
@@ -342,3 +325,34 @@ delete_ !key emm = go emm
                    Tip ky _    | key == ky       -> Nil
                                | otherwise       -> t
                    Nil                           -> Nil
+
+fromSet_ :: (Key -> v) -> EMS.EMS k -> EMM k v
+fromSet_ f = go
+    where
+      go EMS.Nil           = Nil
+      go (EMS.Bin p m l r) = Bin p m (go l) (go r)
+      go (EMS.Tip key bm)  = buildTree f key bm (EMS.suffixBitMask + 1)
+      buildTree g !prefix !bmask bits =
+          case bits of
+            0 -> Tip prefix $! (f prefix)
+            _ -> case intFromNat ((natFromInt bits) `shiftRL` 1) of
+                   bits2 | bmask .&. ((1 `shiftLL` bits2) -1) == 0 ->
+                             buildTree g (prefix + bits2)
+                                           (bmask `shiftRL` bits2) bits2
+                         | (bmask `shiftRL` bits2) .&.
+                           ((1 `shiftLL` bits2) - 1) == 0 ->
+                               buildTree g prefix bmask bits2
+                         | otherwise ->
+                             Bin prefix bits2
+                                     (buildTree g prefix bmask bits2)
+                                     (buildTree g (prefix + bits2)
+                                      (bmask `shiftRL` bits2)
+                                      bits2)
+
+{-# INLINE fromSet_ #-}
+
+intersectSet_ :: EMM k v -> EMS.EMS k -> EMM k v
+intersectSet_ emm ems =
+    mergeWithKey' bin const (const Nil) (const Nil) emm ems'
+        where
+          ems' = fromSet_ (\_ -> ()) ems

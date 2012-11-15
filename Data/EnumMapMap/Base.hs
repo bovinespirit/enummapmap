@@ -34,6 +34,7 @@ module Data.EnumMapMap.Base(
             EnumMapMap(..),
             -- ** SKey
             HasSKey(..),
+            SubKeyS(..),
             -- ** EMM internals
             mergeWithKey',
             mapWithKey_,
@@ -206,6 +207,14 @@ class SubKey k1 k2 v where
     -- present the original 'EnumMapMap' is returned.
     delete :: (IsKey k1, IsKey k2) =>
               k1 -> EnumMapMap k2 v -> EnumMapMap k2 v
+
+class SubKeyS k s where
+    -- | The intersection of an 'EnumMapMap' and an EnumMapSet.  If a key is
+    -- present in the EnumMapSet then it will be present in the resulting
+    -- 'EnumMapMap'.  Works with 'EnumMapSet's that are submaps of the
+    -- 'EnumMapMap'.
+    intersectSet :: (IsKey k, IsKey s) =>
+                   EnumMapMap k v -> EnumMapMap s () -> EnumMapMap k v
 
 class HasSKey k where
     type Skey k :: *
@@ -398,6 +407,14 @@ instance (Enum k, IsKey t1, IsKey t2, SubKey t1 t2 v) =>
 
     delete !(key :& nxt) (KCC emm) =
         KCC $ alter_ (delete nxt) (fromEnum key) emm
+
+instance (Enum k, IsKey t1, IsKey t2, SubKeyS t1 t2) =>
+    SubKeyS (k :& t1) (k :& t2) where
+        intersectSet (KCC emm) (KCC ems) =
+            KCC $ mergeWithKey' binD go (const Nil) (const Nil) emm ems
+                where
+                  go = \(Tip k1 x1) (Tip _ x2) ->
+                       tip k1 $ intersectSet x1 x2
 
 instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
     data EnumMapMap (k :& t) v = KCC (EMM k (EnumMapMap t v))

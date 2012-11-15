@@ -11,7 +11,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck ()
 
 import qualified Data.IntSet as IS
-import           Data.EnumMapSet (EnumMapSet, S(..))
+import           Data.EnumMapSet (S(..))
 import qualified Data.EnumMapSet as EMS
 #ifdef LAZY
 import qualified Data.IntMap as IM
@@ -29,10 +29,10 @@ type TestMap  = EnumMapMap (K Int)                      Int
 type TestMap2 = EnumMapMap (Int :& K Int)               Int
 type TestMap3 = EnumMapMap (Int :& Int :& K Int)        Int
 type TestMap4 = EnumMapMap (Int :& Int :& Int :& K Int) Int
-type TestSet  = EnumMapSet (S Int)
-type TestSet2 = EnumMapSet (Int :& S Int)
-type TestSet3 = EnumMapSet (Int :& Int :& S Int)
-type TestSet4 = EnumMapSet (Int :& Int :& Int :& S Int)
+-- type TestSet  = EnumMapSet (S Int)
+-- type TestSet2 = EnumMapSet (Int :& S Int)
+-- type TestSet3 = EnumMapSet (Int :& Int :& S Int)
+-- type TestSet4 = EnumMapSet (Int :& Int :& Int :& S Int)
 
 list2l1 :: [(Int, Int)] -> [(K Int, Int)]
 list2l1 = map (\(a, b) -> (K a, b))

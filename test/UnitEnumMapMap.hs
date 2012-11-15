@@ -46,6 +46,9 @@ type I = K Int
 k :: Int -> K Int
 k = K
 
+s :: Int -> EMS.S Int
+s = EMS.S
+
 tens :: [Int]
 tens = [1, 10, 100, 1000, 10000, 100000, 1000000]
 
@@ -313,4 +316,10 @@ main =
                     emm = EMM.fromList list
           prop "Level 1" gol1
 
-
+      describe "intersectSet" $ do
+        it "leaves correct values" $
+           (EMM.intersectSet l1odds $ EMS.fromList [s 1, s 2, s 3])
+           @?= EMM.fromList [(k 1, 1), (k 3, 3)]
+        it "leaves correct subtree" $
+           (EMM.intersectSet l2odds $ EMS.fromList [s 1])
+           @?= EMM.fromList [(1 :& k 1, 1), (1 :& k 3, 3), (1 :& k 5, 5)]
