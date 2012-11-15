@@ -63,7 +63,6 @@ IntMap for speed.
 TODO:
 
 - Finish operations on subtrees: alter
-- differenceSet -- needs some thought...
 - Check that Strict really is strict and Lazy really is lazy.
 - More functions - mapMaybe, update, mergeWithKey,  foldr'
 - More benchmarks and optimisation

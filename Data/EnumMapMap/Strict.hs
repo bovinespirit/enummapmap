@@ -63,6 +63,7 @@ module Data.EnumMapMap.Strict (
             difference,
             differenceWith,
             differenceWithKey,
+            differenceSet,
             -- ** Intersection
             intersection,
             intersectionWith,
@@ -266,9 +267,11 @@ instance (Enum k) => SubKey (K k) (K k) v where
 
 instance (Enum k1, k1 ~ k2) => SubKeyS (k1 :& t) (EMS.S k2) where
     intersectSet (KCC emm) (EMS.KSC ems) = KCC $ intersectSet_ emm ems
+    differenceSet (KCC emm) (EMS.KSC ems) = KCC $ differenceSet_ emm ems
 
 instance (Enum k) => SubKeyS (K k) (EMS.S k) where
     intersectSet (KEC emm) (EMS.KSC ems) = KEC $ intersectSet_ emm ems
+    differenceSet (KEC emm) (EMS.KSC ems) = KEC $ differenceSet_ emm ems
 
 member_ :: Key -> EMM k v -> Bool
 member_ key emm = go emm
@@ -354,5 +357,9 @@ fromSet_ f = go
 intersectSet_ :: EMM k v -> EMS.EMS k -> EMM k v
 intersectSet_ emm ems =
     mergeWithKey' bin const (const Nil) (const Nil) emm ems'
-        where
-          ems' = fromSet_ (\_ -> ()) ems
+        where ems' = fromSet_ (\_ -> ()) ems
+
+differenceSet_ :: EMM k v -> EMS.EMS k -> EMM k v
+differenceSet_ emm ems =
+    mergeWithKey' bin (\_ _ -> Nil) id (const Nil) emm ems'
+        where ems' = fromSet_ (\_ -> ()) ems

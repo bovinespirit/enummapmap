@@ -74,6 +74,8 @@ l2tens = EMM.fromList $ zip (do
 
 l1odds :: EnumMapMap (K Int) Int
 l1odds = EMM.fromList $ map (\(key, v) -> (K key, v)) $ zip odds odds
+l1fewOdds :: EnumMapMap (K Int) Int
+l1fewOdds = EMM.fromList $ map (\(key, v) -> (K key, v)) $ zip fewOdds fewOdds
 l2odds :: EnumMapMap (Int :& K Int) Int
 l2odds = EMM.fromList $ zip (do
                               k1 <- fewOdds
@@ -322,4 +324,13 @@ main =
            @?= EMM.fromList [(k 1, 1), (k 3, 3)]
         it "leaves correct subtree" $
            (EMM.intersectSet l2odds $ EMS.fromList [s 1])
+           @?= EMM.fromList [(1 :& k 1, 1), (1 :& k 3, 3), (1 :& k 5, 5)]
+        -- TODO: check for empty subtrees
+
+      describe "differenceSet" $ do
+        it "works correctly" $
+           (EMM.differenceSet l1fewOdds $ EMS.fromList [s 3, s 4, s 5])
+           @?= EMM.fromList [(k 1, 1)]
+        it "leaves correct subtree" $
+           (EMM.differenceSet l2odds $ EMS.fromList [s 3, s 4, s 5])
            @?= EMM.fromList [(1 :& k 1, 1), (1 :& k 3, 3), (1 :& k 5, 5)]
