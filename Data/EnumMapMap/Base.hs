@@ -45,6 +45,7 @@ module Data.EnumMapMap.Base(
             Nat,
             Key,
             intFromNat,
+            natFromInt,
             shiftRL,
             shiftLL,
             branchMask,
@@ -306,9 +307,12 @@ class (Eq k) => IsKey k where
     -- | List of keys
     keys :: EnumMapMap k v -> [k]
     keys = foldrWithKey (\k _ ks -> k:ks) []
-   -- | The 'Data.EnumMapSet' of the keys. 'EnumMapMap' keys can be converted into
+    -- | The 'Data.EnumMapSet' of the keys. 'EnumMapMap' keys can be converted into
     -- 'Data.EnumMapSet' keys using 'toS', and back again using 'toK'.
     keysSet :: (HasSKey k) => EnumMapMap k v -> EnumMapMap (Skey k) ()
+    -- | Build an 'EnumMapMap' from an 'EnumMapSet' and a function which for each
+    -- key computes it's value
+    fromSet :: HasSKey k => (k -> v) -> EnumMapMap (Skey k) () -> EnumMapMap k v
     -- | The (left-biased) union of two 'EnumMapMap's.
     -- It prefers the first 'EnumMapMap' when duplicate keys are encountered.
     union :: EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
@@ -436,15 +440,19 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
 
     mapWithKey f (KCC emm) = KCC $ mapWithKey_ go emm
         where
-          go k = mapWithKey (\nxt -> f $ k :& nxt)
+          go k = mapWithKey (\nxt -> f $! k :& nxt)
 
     foldr f init (KCC emm) = foldrWithKey_ (\_ val z -> foldr f z val) init emm
 
     foldrWithKey f init (KCC emm) = foldrWithKey_ go init emm
         where
-          go k val z = foldrWithKey (\nxt -> f $ k :& nxt) z val
+          go k val z = foldrWithKey (\nxt -> f $! k :& nxt) z val
 
     keysSet (KCC emm) = KCC $ mapWithKey_ (\_ -> keysSet) emm
+
+    fromSet f (KCC ems) = KCC $ mapWithKey_ go ems
+        where
+          go k = fromSet (\nxt -> f $! k :& nxt)
 
     union (KCC emm1) (KCC emm2) = KCC $ mergeWithKey' binD go id id emm1 emm2
         where
@@ -454,7 +462,7 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
                    Tip k1 $ unionWithKey (g k1) x1 x2
-              g k1 nxt = f $ toEnum k1 :& nxt
+              g k1 nxt = f $! toEnum k1 :& nxt
 
     difference (KCC emm1) (KCC emm2) =
         KCC $ mergeWithKey' binD go id (const Nil) emm1 emm2
@@ -466,7 +474,7 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
                    tip k1 $ differenceWithKey (\nxt ->
-                                              f $ toEnum k1 :& nxt) x1 x2
+                                              f $! toEnum k1 :& nxt) x1 x2
 
     intersection (KCC emm1) (KCC emm2) =
         KCC $ mergeWithKey' binD go (const Nil) (const Nil) emm1 emm2
@@ -478,7 +486,7 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
             where
               go = \(Tip k1 x1) (Tip _ x2) ->
                    tip k1 $ intersectionWithKey (\nxt ->
-                                                f $ toEnum k1 :& nxt) x1 x2
+                                                f $! toEnum k1 :& nxt) x1 x2
 
     equal (KCC emm1) (KCC emm2) = emm1 == emm2
     nequal (KCC emm1) (KCC emm2) = emm1 /= emm2

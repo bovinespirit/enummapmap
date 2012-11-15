@@ -10,6 +10,9 @@ import           Test.Hspec.Monadic
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck ()
 
+import qualified Data.IntSet as IS
+import           Data.EnumMapSet (EnumMapSet, S(..))
+import qualified Data.EnumMapSet as EMS
 #ifdef LAZY
 import qualified Data.IntMap as IM
 
@@ -26,6 +29,10 @@ type TestMap  = EnumMapMap (K Int)                      Int
 type TestMap2 = EnumMapMap (Int :& K Int)               Int
 type TestMap3 = EnumMapMap (Int :& Int :& K Int)        Int
 type TestMap4 = EnumMapMap (Int :& Int :& Int :& K Int) Int
+type TestSet  = EnumMapSet (S Int)
+type TestSet2 = EnumMapSet (Int :& S Int)
+type TestSet3 = EnumMapSet (Int :& Int :& S Int)
+type TestSet4 = EnumMapSet (Int :& Int :& Int :& S Int)
 
 list2l1 :: [(Int, Int)] -> [(K Int, Int)]
 list2l1 = map (\(a, b) -> (K a, b))
@@ -38,6 +45,18 @@ list2l3 k1 k2 = map (\(a, b) -> (a :& k1 :& K k2, b))
 
 list2l4 :: Int -> Int -> Int -> [(Int, Int)] -> [(Int :& Int :& Int :& K Int, Int)]
 list2l4 k1 k2 k3 = map (\(a, b) -> (a :& k1 :& k2 :& K k3, b))
+
+set2l1 :: [Int] -> [S Int]
+set2l1 = map S
+
+set2l2 :: Int -> [Int] -> [Int :& S Int]
+set2l2 s1 = map (\s -> s :& S s1)
+
+set2l3 :: Int -> Int -> [Int] -> [Int :& Int :& S Int]
+set2l3 s1 s2 = map (\s -> s :& s1 :& S s2)
+
+set2l4 :: Int -> Int -> Int -> [Int] -> [Int :& Int :& Int :& S Int]
+set2l4 s1 s2 s3 = map (\s -> s :& s1 :& s2 :& S s3)
 
 -- | Run functions on an 'IntMap' and an 'EnumMapMap' created from list and check
 -- that the results are equal
@@ -205,6 +224,16 @@ runPropDuoL4 :: (IM.IntMap Int -> IM.IntMap Int -> IM.IntMap Int)
 runPropDuoL4 f g k1 k2 k3 =
     runPropDuo4 (\a b -> list2l4 k1 k2 k3 $ IM.toList $ f a b)
                     (\a b -> EMM.toList $ g a b) k1 k2 k3
+
+-- 'fromSet' is not in containers 4.*
+-- runSetProp :: Eq t =>
+--               (IS.IntSet -> IM.IntMap Int)
+--            -> (TestSet -> TestMap)
+--            -> [Int]
+--            -> Bool
+-- runSetProp f g list =
+--     (set2l1 $ IM.toList $ f $ IS.fromList list)
+--     == (EMM.toList $ g $ EMS.fromList $ set2l1 list)
 
 main :: IO ()
 main = hspec $ do
@@ -437,3 +466,17 @@ main = hspec $ do
              runProp3 (IM.elems) (EMM.elems)
         prop "Level 4" $
              runProp4 (IM.elems) (EMM.elems)
+
+    describe "keysSet" $ do
+        prop "Level 1" $
+             runProp (set2l1 . IS.toList . IM.keysSet)
+                         (EMS.toList . EMM.keysSet)
+        prop "Level 2" $ \ s1 ->
+             runProp2 (set2l2 s1 . IS.toList . IM.keysSet)
+                         (EMS.toList . EMM.keysSet) s1
+        prop "Level 3" $ \ s1 s2 ->
+             runProp3 (set2l3 s1 s2 . IS.toList . IM.keysSet)
+                         (EMS.toList . EMM.keysSet) s1 s2
+        prop "Level 4" $ \ s1 s2 s3 ->
+             runProp4 (set2l4 s1 s2 s3 . IS.toList . IM.keysSet)
+                         (EMS.toList . EMM.keysSet) s1 s2 s3

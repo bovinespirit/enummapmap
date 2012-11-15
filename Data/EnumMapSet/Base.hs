@@ -261,6 +261,7 @@ instance (Enum k, Eq k) => IsKey (S k) where
     toList = undefined
     elems = undefined
     keysSet = undefined
+    fromSet = undefined
 
 {---------------------------------------------------------------------
   Exported API

@@ -63,10 +63,10 @@ IntMap for speed.
 TODO:
 
 - Finish operations on subtrees: alter
-- EnumMapMap & EnumMapSet - fromSet, intersectSet?, differenceSet?
+- EnumMapMap & EnumMapSet - intersectSet, differenceSet
 - Check that Strict really is strict and Lazy really is lazy.
 - More functions - mapMaybe, update, mergeWithKey,  foldr'
-- More benchmarks and optimising
+- More benchmarks and optimisation
 - More documentation
 - More tests
 - Replace d1..d10 with numbers

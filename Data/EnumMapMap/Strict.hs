@@ -74,12 +74,13 @@ module Data.EnumMapMap.Strict (
             -- * Folds
             foldr,
             foldrWithKey,
-            -- * Lists
+            -- * Lists and Sets
             toList,
             fromList,
             keys,
             elems,
             keysSet,
+            fromSet,
             -- * Split/Join Keys
             toK,
             toS,
@@ -178,6 +179,28 @@ instance (Enum k, Eq k) => IsKey (K k) where
                 computeBm !acc (Bin _ _ l' r') = computeBm (computeBm acc l') r'
                 computeBm !acc (Tip kx _)      = acc .|. EMS.bitmapOf kx
                 computeBm !acc Nil             = acc
+
+    fromSet f (EMS.KSC emm) = KEC $ go emm
+        where
+          go EMS.Nil = Nil
+          go (EMS.Bin p m l r) = Bin p m (go l) (go r)
+          go (EMS.Tip key bm) = buildTree f key bm (EMS.suffixBitMask + 1)
+          buildTree g !prefix !bmask bits =
+              case bits of
+                0 -> Tip prefix $! (g $! K $ toEnum prefix)
+                _ -> case intFromNat ((natFromInt bits) `shiftRL` 1) of
+                       bits2 | bmask .&. ((1 `shiftLL` bits2) -1) == 0 ->
+                                 buildTree g (prefix + bits2)
+                                               (bmask `shiftRL` bits2) bits2
+                             | (bmask `shiftRL` bits2) .&.
+                               ((1 `shiftLL` bits2) - 1) == 0 ->
+                                   buildTree g prefix bmask bits2
+                             | otherwise ->
+                                 Bin prefix bits2
+                                         (buildTree g prefix bmask bits2)
+                                         (buildTree g (prefix + bits2)
+                                          (bmask `shiftRL` bits2)
+                                          bits2)
 
     union (KEC emm1) (KEC emm2) = KEC $ mergeWithKey' Bin const id id emm1 emm2
     unionWithKey f (KEC emm1) (KEC emm2) =
