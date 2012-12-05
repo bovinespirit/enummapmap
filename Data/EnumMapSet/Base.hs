@@ -43,6 +43,8 @@ module Data.EnumMapSet.Base (
             toList,
             fromList,
             keys,
+            -- * Min/Max
+            findMin,
             -- * Internals
             EMS(..),
             EnumMapMap(KSC),
@@ -136,6 +138,18 @@ instance (Enum k, Eq k) => IsKey (S k) where
             go init' (Tip kx bm)   = foldrBits kx f' init' bm
             go init' (Bin _ _ l r) = go (go init' r) l
             f' !k t = f (S $ toEnum k) undefined t
+
+    findMin (KSC ems) =
+        case ems of
+          Nil             -> error "findMin: no minimal element"
+          Tip k bm        -> (S $ toEnum $ k + lowestBitSet bm, undefined)
+          Bin _ m l r
+              |   m < 0   -> go r
+              | otherwise -> go l
+        where go (Tip k bm)      = (S $ toEnum $ k + lowestBitSet bm, undefined)
+              go (Bin _ _ l' _) = go l'
+              go Nil            = error "findMin: Nil"
+
 
     union (KSC ems1) (KSC ems2) = KSC $ go ems1 ems2
         where
@@ -324,6 +338,9 @@ map :: (IsKey k1, IsKey k2, EMM.SubKey k2 k2 (), EMM.Result k2 k2 () ~ ()) =>
        (k1 -> k2) -> EnumMapSet k1 -> EnumMapSet k2
 map f = fromList . List.map f . toList
 
+findMin :: (IsKey k) => EnumMapSet k -> k
+findMin = fst . EMM.findMin
+
 union :: (IsKey k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
 union = EMM.union
 
@@ -435,6 +452,9 @@ instance (Enum k) => EMM.SubKey (S k) (S k) () where
 
     insertWith = undefined
     insertWithKey = undefined
+
+instance (Show v) => Show (EnumMapMap (S k) v) where
+    show (KSC ems) = show ems
 
 {---------------------------------------------------------------------
   Helper functions
@@ -574,3 +594,7 @@ foldrBits prefix f z bitmap = go (revNat bitmap) z
                   | otherwise = case lowestBitMask bm of
                                   bitmask -> bitmask `seq` case indexOfTheOnlyBit bitmask of
                                     bi -> bi `seq` go (bm `xor` bitmask) ((f $! (prefix+(WORD_SIZE_IN_BITS-1)-bi)) acc)
+
+lowestBitSet :: Nat -> Int
+lowestBitSet x = indexOfTheOnlyBit (lowestBitMask x)
+{-# INLINE lowestBitSet #-}

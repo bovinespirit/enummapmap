@@ -326,6 +326,11 @@ class (Eq k) => IsKey k where
     -- | Build an 'EnumMapMap' from an 'EnumMapSet' and a function which for each
     -- key computes it's value
     fromSet :: HasSKey k => (k -> v) -> EnumMapMap (Skey k) () -> EnumMapMap k v
+    -- | The minimal key and value of the 'EnumMapMap'.
+    --
+    -- > findMin empty -- ERROR, no minimal key
+    -- > findMin $ fromList [(K 1, "a", K 3, "b")] == (K 1, a)
+    findMin :: EnumMapMap k v -> (k, v)
     -- | The (left-biased) union of two 'EnumMapMap's.
     -- It prefers the first 'EnumMapMap' when duplicate keys are encountered.
     union :: EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
@@ -479,6 +484,19 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
     fromSet f (KCC ems) = KCC $ mapWithKey_ go ems
         where
           go k = fromSet (\nxt -> f $! k :& nxt)
+
+    findMin (KCC emm) =
+        case emm of
+          Nil             -> error "findMin: no minimal element"
+          Tip k v         -> (toEnum k :& t, v')
+              where (t, v') = findMin v
+          Bin _ m l r
+              |   m < 0   -> go r
+              | otherwise -> go l
+        where go (Tip k v)      = (toEnum k :& t, v')
+                  where (t, v') = findMin v
+              go (Bin _ _ l' _) = go l'
+              go Nil            = error "findMin: Nil"
 
     union (KCC emm1) (KCC emm2) = KCC $ mergeWithKey' binD go id id emm1 emm2
         where

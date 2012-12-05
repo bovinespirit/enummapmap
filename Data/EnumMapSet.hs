@@ -48,7 +48,9 @@ module Data.EnumMapSet (
             -- * Lists
             toList,
             fromList,
-            keys
+            keys,
+            -- * Min/Max
+            findMin
 ) where
 
 import Data.EnumMapSet.Base as EMS

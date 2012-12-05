@@ -8,11 +8,13 @@
 
 import           Test.Hspec.Monadic
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck ()
+import           Test.QuickCheck ((==>))
 
 import qualified Data.IntSet as IS
 import           Data.EnumMapSet (S(..))
 import qualified Data.EnumMapSet as EMS
+import qualified Data.List as L
+
 #ifdef LAZY
 import qualified Data.IntMap as IM
 
@@ -392,6 +394,25 @@ main = hspec $ do
         prop "Level 4" $
              runPropL4 (IM.mapWithKey f) (EMM.mapWithKey
                                           (\(k :& _ :& _ :& K _) -> f k))
+
+    describe "findMin" $ do
+        let go f (a, b) = (f a, b)
+        prop "Level 1" $ \list ->
+             (not $ L.null list) ==>
+                 runProp (IM.findMin) (go (\(K k) -> k) . EMM.findMin) list
+        prop "Level 2" $ \k1 list ->
+             (not $ L.null list) ==>
+                 runProp2 (IM.findMin)
+                          (go (\(k :& K _) -> k) . EMM.findMin) k1 list
+        prop "Level 3" $ \k1 k2 list ->
+             (not $ L.null list) ==>
+                 runProp3 (IM.findMin)
+                          (go (\(k :& _ :& K _) -> k) . EMM.findMin) k1 k2 list
+        prop "Level 4" $ \k1 k2 k3 list ->
+             (not $ L.null list) ==>
+                 runProp4 (IM.findMin)
+                          (go (\(k :& _ :& _ :& K _) -> k) . EMM.findMin)
+                          k1 k2 k3 list
 
     describe "union" $ do
         prop "Level 1" $

@@ -6,9 +6,10 @@
 
 import           Test.Hspec.Monadic
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck ()
+import           Test.QuickCheck ((==>))
 
 import qualified Data.IntSet as IS
+import qualified Data.List as L
 
 import           Data.EnumMapSet(EnumMapSet, (:&)(..), S(..))
 import qualified Data.EnumMapSet as EMS
@@ -175,6 +176,20 @@ main = hspec $ do
       prop "Level 3" $
            runPropL3 (IS.map f)
                          (EMS.map (\(k :& k2 :& S k1) -> f k :& k2 :& S k1))
+
+    describe "findMin" $ do
+      prop "Level 1" $ \list ->
+          (not $ L.null list) ==>
+              runProp (IS.findMin)
+                          ((\(S k) -> k) . EMS.findMin) list
+      prop "Level 2" $ \k1 list ->
+          (not $ L.null list) ==>
+              runProp2 (IS.findMin)
+                           ((\(k :& S _) -> k) . EMS.findMin) k1 list
+      prop "Level 3" $ \k1 k2 list ->
+          (not $ L.null list) ==>
+              runProp3 (IS.findMin)
+                           ((\(k :& _ :& S _) -> k) . EMS.findMin) k1 k2 list
 
     describe "union" $ do
       prop "Level 1" $

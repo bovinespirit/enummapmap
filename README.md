@@ -64,7 +64,7 @@ TODO:
 
 - Finish operations on subtrees: alter
 - Check that Strict really is strict and Lazy really is lazy.
-- More functions - mapMaybe, update, mergeWithKey,  foldr'
+- More functions - minView, mapMaybe, update, mergeWithKey,  foldr'
 - More benchmarks and optimisation
 - More documentation
 - More tests
