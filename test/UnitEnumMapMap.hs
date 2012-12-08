@@ -1,7 +1,9 @@
 {-# LANGUAGE CPP, GeneralizedNewtypeDeriving, ScopedTypeVariables, TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
+import           Control.Exception
 import           Control.Monad (liftM, liftM2)
+import           Test.Hspec.Expectations
 import           Test.Hspec.HUnit ()
 import           Test.Hspec.Monadic
 import           Test.Hspec.QuickCheck (prop)
@@ -334,3 +336,8 @@ main =
         it "leaves correct subtree" $
            (EMM.differenceSet l2odds $ EMS.fromList [s 3, s 4, s 5])
            @?= EMM.fromList [(1 :& k 1, 1), (1 :& k 3, 3), (1 :& k 5, 5)]
+
+      describe "findMin" $ do
+        it "throws an error when it is passed an empty EnumMapMap" $ do
+           evaluate (EMM.findMin (EMM.empty :: EnumMapMap (K Int) Int))
+                        `shouldThrow` anyErrorCall
