@@ -87,6 +87,21 @@ Test-Suite test-enummapmap-intmap-strict
                       enummapmap
     cpp-options:      -DTESTING -DSTRICT
 
+Test-Suite test-enummapset
+    type:             exitcode-stdio-1.0
+    main-is:          UnitEnumMapSet.hs
+    hs-source-dirs:   test
+    ghc-options:      -Wall -O2
+    default-language: Haskell2010
+    build-depends:    base >= 4.0 && < 5,
+                      HUnit,
+                      QuickCheck >= 2,
+                      hspec >= 1.3,
+                      hspec-expectations,
+                      deepseq >= 1.2 && < 1.4,
+                      containers >= 0.4.2,
+                      enummapmap
+
 Test-Suite test-enummapset-intset
     type:             exitcode-stdio-1.0
     main-is:          EnumMapSetVsIntSet.hs
