@@ -39,6 +39,7 @@ module Data.EnumMapSet.Base (
             map,
             -- * Folds
             foldr,
+            all,
             -- * Lists
             toList,
             fromList,
@@ -56,12 +57,8 @@ module Data.EnumMapSet.Base (
             prefixOf
 ) where
 
-import           Prelude hiding (lookup,
-                                 map,
-                                 filter,
-                                 foldr, foldl,
-                                 null, init,
-                                 head, tail)
+import           Prelude hiding (lookup, map, filter, foldr, foldl,
+                                 null, init, head, tail, all)
 
 import           Data.Bits
 import qualified Data.List as List
@@ -349,6 +346,12 @@ foldr :: (IsKey k) => (k -> t -> t) -> t -> EnumMapSet k -> t
 foldr f = EMM.foldrWithKey go
     where
       go k _ z = f k z
+
+all :: (IsKey k) => (k -> Bool) -> EnumMapSet k -> Bool
+all f = foldr go True
+    where
+      go _ False = False
+      go k True = f k
 
 -- | @'map' f s@ is the set obtained by applying @f@ to each element of @s@.
 --

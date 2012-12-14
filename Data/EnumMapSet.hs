@@ -45,6 +45,7 @@ module Data.EnumMapSet (
             EMS.map,
             -- * Folds
             EMS.foldr,
+            EMS.all,
             -- * Lists
             toList,
             fromList,
