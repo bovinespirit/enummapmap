@@ -45,6 +45,8 @@ module Data.EnumMapSet.Base (
             keys,
             -- * Min/Max
             findMin,
+            minView,
+            deleteFindMin,
             -- * Internals
             EMS(..),
             EnumMapMap(KSC),
@@ -63,6 +65,7 @@ import           Prelude hiding (lookup,
 
 import           Data.Bits
 import qualified Data.List as List
+import           Data.Maybe (fromMaybe)
 import           GHC.Exts (Word(..), Int(..))
 import           GHC.Prim (indexInt8OffAddr#)
 #include "MachDeps.h"
@@ -150,6 +153,23 @@ instance (Enum k, Eq k) => IsKey (S k) where
               go (Bin _ _ l' _) = go l'
               go Nil            = error "findMin: Nil"
 
+    minViewWithKey (KSC ems) =
+        goat ems >>= (\(k, r) -> return ((S $ toEnum k, undefined), KSC r))
+            where
+              goat t =
+                  case t of Nil                 -> Nothing
+                            Bin p m l r | m < 0 ->
+                                            case go r of
+                                              (result, r') ->
+                                                  Just (result, bin p m l r')
+                            _                   -> Just (go t)
+              go (Bin p m l r) = case go l of
+                                   (result, l') -> (result, bin p m l' r)
+              go (Tip kx bm) = case lowestBitSet bm of
+                                 bi -> (kx + bi,
+                                           tip kx (bm .&. complement
+                                                          (bitmapOfSuffix bi)))
+              go Nil = error "minView Nil"
 
     union (KSC ems1) (KSC ems2) = KSC $ go ems1 ems2
         where
@@ -340,6 +360,14 @@ map f = fromList . List.map f . toList
 
 findMin :: (IsKey k) => EnumMapSet k -> k
 findMin = fst . EMM.findMin
+
+minView :: (IsKey k) => EnumMapSet k -> Maybe (k, EnumMapSet k)
+minView ems = EMM.minViewWithKey ems >>= \((k, _), ems') -> return (k, ems')
+
+deleteFindMin :: (IsKey k) => EnumMapSet k -> (k, EnumMapSet k)
+deleteFindMin =
+    fromMaybe (error "deleteFindMin: empty EnumMapSet has no minimal element")
+                  . minView
 
 union :: (IsKey k) => EnumMapSet k -> EnumMapSet k -> EnumMapSet k
 union = EMM.union

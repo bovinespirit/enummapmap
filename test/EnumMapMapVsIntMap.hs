@@ -60,6 +60,15 @@ set2l3 s1 s2 = map (\s -> s :& s1 :& S s2)
 set2l4 :: Int -> Int -> Int -> [Int] -> [Int :& Int :& Int :& S Int]
 set2l4 s1 s2 s3 = map (\s -> s :& s1 :& s2 :& S s3)
 
+unKey1 :: K k -> k
+unKey1 (K k) = k
+unKey2 :: k1 :& K k2 -> k1
+unKey2 (k :& K _) = k
+unKey3 :: k1 :& k2 :& K k3 -> k1
+unKey3 (k :& _ :& K _) = k
+unKey4 :: k1 :& k2 :& k3 :& K k4 -> k1
+unKey4 (k :& _ :& _ :& K _) = k
+
 -- | Run functions on an 'IntMap' and an 'EnumMapMap' created from list and check
 -- that the results are equal
 runProp :: Eq t =>
@@ -383,36 +392,68 @@ main = hspec $ do
     describe "mapWithKey" $ do
         let f k a = k + a
         prop "Level 1" $
-             runPropL  (IM.mapWithKey f) (EMM.mapWithKey
-                                          (\(K k) -> f k))
+             runPropL  (IM.mapWithKey f) (EMM.mapWithKey (f . unKey1))
         prop "Level 2" $
-             runPropL2 (IM.mapWithKey f) (EMM.mapWithKey
-                                          (\(k :& K _) -> f k))
+             runPropL2 (IM.mapWithKey f) (EMM.mapWithKey (f . unKey2))
         prop "Level 3" $
-             runPropL3 (IM.mapWithKey f) (EMM.mapWithKey
-                                          (\(k :& _ :& K _) -> f k))
+             runPropL3 (IM.mapWithKey f) (EMM.mapWithKey (f . unKey3))
         prop "Level 4" $
-             runPropL4 (IM.mapWithKey f) (EMM.mapWithKey
-                                          (\(k :& _ :& _ :& K _) -> f k))
+             runPropL4 (IM.mapWithKey f) (EMM.mapWithKey (f . unKey4))
 
     describe "findMin" $ do
         let go f (a, b) = (f a, b)
         prop "Level 1" $ \list ->
              (not $ L.null list) ==>
-                 runProp (IM.findMin) (go (\(K k) -> k) . EMM.findMin) list
+                 runProp (IM.findMin) (go unKey1 . EMM.findMin) list
         prop "Level 2" $ \k1 list ->
              (not $ L.null list) ==>
-                 runProp2 (IM.findMin)
-                          (go (\(k :& K _) -> k) . EMM.findMin) k1 list
+                 runProp2 (IM.findMin) (go unKey2 . EMM.findMin) k1 list
         prop "Level 3" $ \k1 k2 list ->
              (not $ L.null list) ==>
-                 runProp3 (IM.findMin)
-                          (go (\(k :& _ :& K _) -> k) . EMM.findMin) k1 k2 list
+                 runProp3 (IM.findMin) (go unKey3 . EMM.findMin) k1 k2 list
         prop "Level 4" $ \k1 k2 k3 list ->
              (not $ L.null list) ==>
-                 runProp4 (IM.findMin)
-                          (go (\(k :& _ :& _ :& K _) -> k) . EMM.findMin)
-                          k1 k2 k3 list
+                 runProp4 (IM.findMin) (go unKey4 . EMM.findMin) k1 k2 k3 list
+
+    describe "minViewWithKey" $ do
+        let goe _ Nothing = Nothing
+            goe f (Just ((k, v), emm)) = Just ((f k, v), EMM.toList emm)
+            goi _ Nothing = Nothing
+            goi f (Just ((k, v), im)) = Just ((k, v), f $ IM.toList im)
+        prop "Level 1" $
+             runProp (goi list2l1 . IM.minViewWithKey)
+                         (goe unKey1 . EMM.minViewWithKey)
+        prop "Level 2" $ \k1 ->
+             runProp2 (goi (list2l2 k1) . IM.minViewWithKey)
+                         (goe unKey2 . EMM.minViewWithKey) k1
+        prop "Level 3" $ \k1 k2 ->
+             runProp3 (goi (list2l3 k1 k2) . IM.minViewWithKey)
+                         (goe unKey3 . EMM.minViewWithKey) k1 k2
+        prop "Level 4" $ \k1 k2 k3 ->
+             runProp4 (goi (list2l4 k1 k2 k3) . IM.minViewWithKey)
+                         (goe unKey4 . EMM.minViewWithKey) k1 k2 k3
+
+    describe "deleteFindMin" $ do
+        let goe _ Nothing = Nothing
+            goe f (Just ((k, v), emm)) = Just ((f k, v), EMM.toList emm)
+            goi _ Nothing = Nothing
+            goi f (Just ((k, v), im)) = Just ((k, v), f $ IM.toList im)
+        prop "Level 1" $ \list ->
+             (not $ L.null list) ==>
+                 runProp (goi list2l1 . IM.minViewWithKey)
+                            (goe unKey1 . EMM.minViewWithKey) list
+        prop "Level 2" $ \k1 list ->
+             (not $ L.null list) ==>
+                 runProp2 (goi (list2l2 k1) . IM.minViewWithKey)
+                             (goe unKey2 . EMM.minViewWithKey) k1 list
+        prop "Level 3" $ \k1 k2 list ->
+             (not $ L.null list) ==>
+                 runProp3 (goi (list2l3 k1 k2) . IM.minViewWithKey)
+                             (goe unKey3 . EMM.minViewWithKey) k1 k2 list
+        prop "Level 4" $ \k1 k2 k3 list ->
+             (not $ L.null list) ==>
+                 runProp4 (goi (list2l4 k1 k2 k3) . IM.minViewWithKey)
+                             (goe unKey4 . EMM.minViewWithKey) k1 k2 k3 list
 
     describe "union" $ do
         prop "Level 1" $

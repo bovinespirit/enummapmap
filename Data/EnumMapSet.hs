@@ -50,7 +50,9 @@ module Data.EnumMapSet (
             fromList,
             keys,
             -- * Min/Max
-            findMin
+            findMin,
+            minView,
+            deleteFindMin
 ) where
 
 import Data.EnumMapSet.Base as EMS

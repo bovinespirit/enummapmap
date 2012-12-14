@@ -69,6 +69,7 @@ import           Prelude hiding (lookup,
 
 import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
+import           Data.Maybe (fromMaybe)
 import           Data.Monoid (Monoid(..))
 import           GHC.Exts (Word(..), Int(..),
                            uncheckedShiftRL#, uncheckedShiftL#)
@@ -331,6 +332,13 @@ class (Eq k) => IsKey k where
     -- > findMin empty -- ERROR, no minimal key
     -- > findMin $ fromList [(K 1, "a", K 3, "b")] == (K 1, a)
     findMin :: EnumMapMap k v -> (k, v)
+    -- | Retrieves the minimal (key,value) pair of the EnumMapMap, and the
+    -- EnumMapMap stripped of that element, or 'Nothing' if passed an empty map.
+    minViewWithKey :: EnumMapMap k v -> Maybe ((k, v), EnumMapMap k v)
+    deleteFindMin :: EnumMapMap k v -> ((k, v), EnumMapMap k v)
+    deleteFindMin =
+        fromMaybe(error "deleteFindMin: empty EnumMapMap has no minimal\
+                        \ element") . minViewWithKey
     -- | The (left-biased) union of two 'EnumMapMap's.
     -- It prefers the first 'EnumMapMap' when duplicate keys are encountered.
     union :: EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
@@ -497,6 +505,25 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
                   where (t, v') = findMin v
               go (Bin _ _ l' _) = go l'
               go Nil            = error "findMin: Nil"
+
+    minViewWithKey (KCC emm) =
+        goat emm >>= \(r, emm') -> return (r, KCC $ emm')
+            where
+              goat t =
+                  case t of
+                    Nil                 -> Nothing
+                    Bin p m l r | m < 0 ->
+                                    case go r of
+                                      (result, r') ->
+                                          Just (result, binD p m l r')
+                    _                   -> Just (go t)
+              go (Bin p m l r) = case go l of
+                                   (result, l') -> (result, binD p m l' r)
+              go (Tip k y) = case minViewWithKey y of
+                               Just ((t, v), y') ->
+                                   (((toEnum k) :& t, v), tip k y')
+                               Nothing -> error "minViewWithKey: Nothing"
+              go Nil = error "minViewWithKey Nil"
 
     union (KCC emm1) (KCC emm2) = KCC $ mergeWithKey' binD go id id emm1 emm2
         where

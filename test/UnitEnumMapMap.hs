@@ -341,3 +341,8 @@ main =
         it "throws an error when it is passed an empty EnumMapMap" $ do
            evaluate (EMM.findMin (EMM.empty :: EnumMapMap (K Int) Int))
                         `shouldThrow` anyErrorCall
+
+      describe "deleteFindMin" $ do
+        it "throws an error when it is passed an empty EnumMapMap" $ do
+           evaluate (EMM.deleteFindMin (EMM.empty :: EnumMapMap (K Int) Int))
+                        `shouldThrow` anyErrorCall

@@ -84,6 +84,8 @@ module Data.EnumMapMap.Lazy (
             fromSet,
             -- * Min/Max
             findMin,
+            minViewWithKey,
+            deleteFindMin,
             -- * Split/Join Keys
             toK,
             toS,
@@ -195,6 +197,20 @@ instance (Enum k, Eq k) => IsKey (K k) where
         where go (Tip k v)      = (K $ toEnum k, v)
               go (Bin _ _ l' _) = go l'
               go Nil            = error "findMin: Nil"
+    minViewWithKey (KEC emm) =
+        goat emm >>= \(r, emm') -> return (r, KEC $ emm')
+            where
+              goat t =
+                  case t of Nil                 -> Nothing
+                            Bin p m l r | m < 0 ->
+                                            case go r of
+                                              (result, r') ->
+                                                  Just (result, bin p m l r')
+                            _                   -> Just (go t)
+              go (Bin p m l r) = case go l of
+                                   (result, l') -> (result, bin p m l' r)
+              go (Tip k y) = ((K $ toEnum k, y), Nil)
+              go Nil = error "minViewWithKey Nil"
     union (KEC emm1) (KEC emm2) = KEC $ mergeWithKey' Bin const id id emm1 emm2
     unionWithKey f (KEC emm1) (KEC emm2) =
         KEC $ mergeWithKey' Bin go id id emm1 emm2

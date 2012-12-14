@@ -27,6 +27,13 @@ list2l2 k1 = map (\k -> k :& S k1)
 list2l3 :: Int -> Int -> [Int] -> [Int :& Int :& S Int]
 list2l3 k1 k2 = map (\k -> k :& k1 :& S k2)
 
+unKey1 :: S k -> k
+unKey1 (S k) = k
+unKey2 :: k1 :& S k2 -> k1
+unKey2 (k :& S _) = k
+unKey3 :: k1 :& k2 :& S k3 -> k1
+unKey3 (k :& _ :& S _) = k
+
 runProp :: Eq t =>
            (IS.IntSet -> t)
         -> (TestSet1 -> t)
@@ -180,16 +187,27 @@ main = hspec $ do
     describe "findMin" $ do
       prop "Level 1" $ \list ->
           (not $ L.null list) ==>
-              runProp (IS.findMin)
-                          ((\(S k) -> k) . EMS.findMin) list
+              runProp (IS.findMin) (unKey1 . EMS.findMin) list
       prop "Level 2" $ \k1 list ->
           (not $ L.null list) ==>
-              runProp2 (IS.findMin)
-                           ((\(k :& S _) -> k) . EMS.findMin) k1 list
+              runProp2 (IS.findMin) (unKey2 . EMS.findMin) k1 list
       prop "Level 3" $ \k1 k2 list ->
           (not $ L.null list) ==>
-              runProp3 (IS.findMin)
-                           ((\(k :& _ :& S _) -> k) . EMS.findMin) k1 k2 list
+              runProp3 (IS.findMin) (unKey3 . EMS.findMin) k1 k2 list
+
+    describe "minView" $ do
+        let goe _ Nothing = Nothing
+            goe f (Just (k, ems)) = Just (f k, EMS.toList ems)
+            goi _ Nothing = Nothing
+            goi f (Just (k, is)) = Just (k, f $ IS.toList is)
+        prop "Level 1" $
+             runProp (goi list2l1 . IS.minView) (goe unKey1 . EMS.minView)
+        prop "Level 2" $ \k1 ->
+             runProp2 (goi (list2l2 k1) . IS.minView)
+                          (goe unKey2 . EMS.minView) k1
+        prop "Level 3" $ \k1 k2 ->
+             runProp3 (goi (list2l3 k1 k2) . IS.minView)
+                          (goe unKey3 . EMS.minView) k1 k2
 
     describe "union" $ do
       prop "Level 1" $
