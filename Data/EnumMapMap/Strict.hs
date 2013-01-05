@@ -111,7 +111,7 @@ newtype K k = K k
            deriving (Show, Eq)
 
 instance (Enum k, Eq k) => IsKey (K k) where
-    data EnumMapMap (K k) v = KEC (EMM k v)
+    newtype EnumMapMap (K k) v = KEC (EMM k v)
 
     emptySubTrees e@(KEC emm) =
         case emm of

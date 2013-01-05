@@ -439,7 +439,7 @@ instance (Enum k, IsKey t1, IsKey t2, SubKeyS t1 t2) =>
                        tip k1 $ differenceSet x1 x2
 
 instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
-    data EnumMapMap (k :& t) v = KCC (EMM k (EnumMapMap t v))
+    newtype EnumMapMap (k :& t) v = KCC (EMM k (EnumMapMap t v))
 
     emptySubTrees e@(KCC emm) =
         case emm of

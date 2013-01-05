@@ -100,7 +100,7 @@ data EMS k = Bin {-# UNPACK #-} !Prefix {-# UNPACK #-} !Mask
              deriving (Show)
 
 instance (Enum k, Eq k) => IsKey (S k) where
-    data EnumMapMap (S k) v = KSC (EMS k)
+    newtype EnumMapMap (S k) v = KSC (EMS k)
 
     emptySubTrees e@(KSC emm) =
         case emm of
