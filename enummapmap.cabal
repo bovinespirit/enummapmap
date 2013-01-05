@@ -22,6 +22,7 @@ Library
                     Data.EnumMapSet
    other-modules:   Data.EnumMapMap.Base, Data.EnumMapSet.Base
    build-depends:   base >= 4.0 && < 5,
+                    data-default,
                     deepseq >= 1.2 && < 1.4,
                     ghc-prim
    ghc-options:     -Wall -O2

@@ -69,6 +69,7 @@ import           Prelude hiding (lookup,
 
 import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
+import           Data.Default
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid (Monoid(..))
 import           GHC.Exts (Word(..), Int(..),
@@ -726,6 +727,9 @@ instance (NFData v, NFData (EnumMapMap t v)) => NFData (EnumMapMap (k :& t) v)
 instance (NFData k, NFData t) => NFData (k :& t)
     where
       rnf (k :& t) = rnf k `seq` rnf t
+
+instance (IsKey k) => Default (EnumMapMap k v) where
+    def = empty
 
 {--------------------------------------------------------------------
   Nat conversion
