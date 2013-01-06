@@ -3,7 +3,7 @@
 import           Test.Hspec.Expectations
 import           Test.Hspec.HUnit ()
 import           Test.Hspec.QuickCheck (prop)
-import           Test.Hspec.Monadic
+import           Test.Hspec
 
 import           Data.EnumMapSet (EnumMapSet, (:&)(..), S(..))
 import qualified Data.EnumMapSet as EMS

@@ -4,7 +4,7 @@
 -- | This uses QuickCheck to try to check that an 'EnumMapSet'
 -- behaves in the same way as an 'IntSet'.
 
-import           Test.Hspec.Monadic
+import           Test.Hspec
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck ((==>))
 

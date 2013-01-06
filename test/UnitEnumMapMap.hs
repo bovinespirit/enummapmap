@@ -14,7 +14,7 @@ import           Control.Monad (liftM, liftM2)
 import           Data.Semigroup
 import           Test.Hspec.Expectations
 import           Test.Hspec.HUnit ()
-import           Test.Hspec.Monadic
+import           Test.Hspec
 import           Test.Hspec.QuickCheck (prop)
 import           Test.HUnit
 import           Test.QuickCheck (Arbitrary, arbitrary, shrink, listOf)

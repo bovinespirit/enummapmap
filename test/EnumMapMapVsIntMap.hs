@@ -6,7 +6,8 @@
 -- 'EnumMapMap' one by one for each function.  It does not check that empty
 -- EnumMapMaps are removed.
 
-import           Test.Hspec.Monadic
+import           Test.Hspec
+
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck ((==>))
 
