@@ -1,14 +1,23 @@
-{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, ScopedTypeVariables, TypeOperators #-}
+{-# LANGUAGE
+  CPP,
+  FlexibleContexts,
+  FlexibleInstances,
+  GeneralizedNewtypeDeriving,
+  ScopedTypeVariables,
+  TypeFamilies,
+  TypeOperators,
+  UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 import           Control.Exception
 import           Control.Monad (liftM, liftM2)
+import           Data.Semigroup
 import           Test.Hspec.Expectations
 import           Test.Hspec.HUnit ()
 import           Test.Hspec.Monadic
 import           Test.Hspec.QuickCheck (prop)
 import           Test.HUnit
-import           Test.QuickCheck (Arbitrary, arbitrary, shrink)
+import           Test.QuickCheck (Arbitrary, arbitrary, shrink, listOf)
 import qualified Data.EnumMapSet as EMS
 
 #ifdef LAZY
@@ -27,6 +36,14 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (a :& b) where
 instance (Arbitrary a) => Arbitrary (K a) where
     arbitrary = liftM K arbitrary
 
+instance (Arbitrary k, Arbitrary v,
+          EMM.IsKey k, EMM.SubKey k k v, EMM.Result k k v ~ v) =>
+    Arbitrary (EnumMapMap k v) where
+        arbitrary = fmap EMM.fromList $ listOf $ do
+                                   key <- arbitrary
+                                   val <- arbitrary
+                                   return (key, val)
+
 newtype ID1 = ID1 Int
     deriving (Show, Enum, Arbitrary, Eq, Num)
 newtype ID2 = ID2 Int
@@ -38,6 +55,7 @@ type TestKey1 = K ID1
 type TestEmm1 = EnumMapMap TestKey1 Int
 type TestKey2 = ID2 :& K ID1
 type TestEmm2 = EnumMapMap TestKey2 Int
+type TestEmm2B = EnumMapMap TestKey2 Bool
 type TestKey3 = ID3 :& ID2 :& K ID1
 type TestEmm3 = EnumMapMap TestKey3 Int
 
@@ -346,3 +364,21 @@ main =
         it "throws an error when it is passed an empty EnumMapMap" $ do
            evaluate (EMM.deleteFindMin (EMM.empty :: EnumMapMap (K Int) Int))
                         `shouldThrow` anyErrorCall
+
+      describe "Monoid/Semigroup instances" $ do
+        let uvsm :: TestEmm3 -> TestEmm3 -> Bool
+            uvsm emm1 emm2 =
+                ((EMM.map Sum emm1) <> (EMM.map Sum emm2)) ==
+                ( EMM.map Sum $ EMM.unionWith (+) emm1 emm2)
+        prop "mappend works like unionWith mappend" uvsm
+        let lvsi :: TestEmm3 -> TestEmm3 -> Bool
+            lvsi emm1 emm2
+                = ((EMM.map First emm1) <> (EMM.map First emm2)) ==
+                  (EMM.map First $ EMM.union emm1 emm2)
+        prop "(<>) First works like union" lvsi
+        let bvsu :: [TestEmm2B] -> Bool
+            bvsu emms =
+                (mconcat $ map (EMM.map All) emms) ==
+                (EMM.map All $ EMM.unionsWith (&&) emms)
+        prop "unionsWith (&&) works like mconcat All" bvsu
+

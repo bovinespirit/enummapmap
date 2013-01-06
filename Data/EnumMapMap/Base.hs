@@ -71,7 +71,7 @@ import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import           Data.Default
 import           Data.Maybe (fromMaybe)
-import           Data.Monoid (Monoid(..))
+import           Data.Semigroup
 import           GHC.Exts (Word(..), Int(..),
                            uncheckedShiftRL#, uncheckedShiftL#)
 
@@ -346,6 +346,9 @@ class (Eq k) => IsKey k where
     -- | The union of a list of maps.
     unions :: [EnumMapMap k v] -> EnumMapMap k v
     unions = foldlStrict union empty
+    -- | The union of a list of maps with a combining function
+    unionsWith :: (v -> v -> v) -> [EnumMapMap k v] -> EnumMapMap k v
+    unionsWith f = foldlStrict (unionWith f) empty
     -- | The union with a combining function.
     unionWith :: (v -> v -> v)
               -> EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
@@ -708,10 +711,17 @@ instance (IsKey k) => Functor (EnumMapMap k)
     where
       fmap = map
 
-instance (IsKey k) => Monoid (EnumMapMap k v) where
+-- | This instance differs from the 'Monoid' instance in 'IntMap'.  Where the keys
+-- are the same the values are combined using 'mappend'.
+instance (IsKey k, Semigroup v) => Monoid (EnumMapMap k v) where
     mempty = empty
-    mappend = union
-    mconcat = unions
+    mappend = unionWith (<>)
+    mconcat = unionsWith (<>)
+
+instance (IsKey k, Semigroup v) =>
+    Semigroup (EnumMapMap k v) where
+        (<>) = unionWith (<>)
+        times1p _ a = a
 
 instance (Show v, Show (EnumMapMap t v)) => Show (EnumMapMap (k :& t) v) where
     show (KCC emm) = show emm

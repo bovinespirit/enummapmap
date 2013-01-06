@@ -34,7 +34,7 @@ module Data.EnumMapMap.Lazy (
             emptySubTrees,
 
             -- * Key types
-            (:&)(..), K(..),
+            (:&)(..), K(..), IsKey, SubKey, Result,
             d1, d2, d3, d4, d5, d6, d7, d8, d9, d10,
             -- * Map Type
             EnumMapMap,
@@ -59,6 +59,7 @@ module Data.EnumMapMap.Lazy (
             unionWith,
             unionWithKey,
             unions,
+            unionsWith,
             -- ** Difference
             difference,
             differenceWith,
