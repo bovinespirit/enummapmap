@@ -57,11 +57,18 @@ There is also 'EnumMapSet'.  The terminating key type is S instead of K.
 _Caveats_
 
 EnumMapMap has grown quite an unwieldy, or at least verbose, API.  See the unit
-tests for details.  Run the benchmarking suite to see how EnumMapMap compares to
-IntMap for speed.
+tests for the full horror.  Run the benchmarking suite to see how EnumMapMap
+compares to IntMap for speed.
+
+Because the keys are polymorphic you may have to specify types:
+```haskell
+treeKey = (2 :: OrchardID) :& (K $ 3 :: TreeID)
+```
 
 TODO:
 
+- Investigate removing K and S using [Ordered Overlapping Type Family Instances]
+    (https://typesandkinds.wordpress.com/2012/12/22/ordered-overlapping-type-family-instances/)
 - Finish operations on subtrees: alter
 - Check that Strict really is strict and Lazy really is lazy.
 - More functions - mapMaybe, update, mergeWithKey,  foldr'
