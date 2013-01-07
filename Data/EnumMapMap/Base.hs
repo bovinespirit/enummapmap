@@ -771,6 +771,8 @@ intFromNat = fromIntegral
 shiftRL, shiftLL :: Nat -> Int -> Nat
 shiftRL (W# x) (I# i) = W# (uncheckedShiftRL# x i)
 shiftLL (W# x) (I# i) = W# (uncheckedShiftL#  x i)
+{-# INLINE shiftRL #-}
+{-# INLINE shiftLL #-}
 
 {--------------------------------------------------------------------
   Join
