@@ -99,6 +99,8 @@ import           Prelude hiding (lookup,map,filter,foldr,foldl,null,init)
 
 import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
+import qualified Data.Foldable as FOLD
+import           Data.Semigroup
 
 import           Data.EnumMapMap.Base
 import qualified Data.EnumMapSet.Base as EMS
@@ -257,6 +259,19 @@ instance NFData v => NFData (EnumMapMap (K k) v) where
 instance (NFData k) => NFData (K k)
     where
       rnf (K k) = rnf k
+
+instance (Eq k, Enum k) => FOLD.Foldable (EnumMapMap (K k)) where
+    fold (KEC emm) = go emm
+        where
+          go Nil           = mempty
+          go (Tip _ v)     = v
+          go (Bin _ _ l r) = go l `mappend` go r
+    foldr = foldr
+    foldMap f (KEC emm) = go emm
+        where
+          go Nil           = mempty
+          go (Tip _ v)     = f v
+          go (Bin _ _ l r) = go l `mappend` go r
 
 instance HasSKey (K k) where
     type Skey (K k) = EMS.S k

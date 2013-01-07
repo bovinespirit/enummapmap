@@ -14,7 +14,9 @@ import           Test.QuickCheck ((==>))
 import qualified Data.IntSet as IS
 import           Data.EnumMapSet (S(..))
 import qualified Data.EnumMapSet as EMS
+import           Data.Foldable (foldMap, fold)
 import qualified Data.List as L
+import           Data.Semigroup
 
 #ifdef LAZY
 import qualified Data.IntMap as IM
@@ -543,3 +545,23 @@ main = hspec $ do
         prop "Level 4" $ \ s1 s2 s3 ->
              runProp4 (set2l4 s1 s2 s3 . IS.toList . IM.keysSet)
                          (EMS.toList . EMM.keysSet) s1 s2 s3
+
+    describe "foldable instance" $ do
+        describe "foldMap" $ do
+            prop "Level 1" $
+                 runProp (foldMap (All . (> 5))) (foldMap (All . (> 5)))
+            prop "Level 2" $
+                 runProp2 (foldMap (All . (> 5))) (foldMap (All . (> 5)))
+            prop "Level 3" $
+                 runProp3 (foldMap (All . (> 5))) (foldMap (All . (> 5)))
+            prop "Level 4" $
+                 runProp4 (foldMap (All . (> 5))) (foldMap (All . (> 5)))
+        describe "fold" $ do
+            prop "Level 1" $
+                 runProp (fold . IM.map Sum) (fold . EMM.map Sum)
+            prop "Level 2" $
+                 runProp2 (fold . IM.map Sum) (fold . EMM.map Sum)
+            prop "Level 3" $
+                 runProp3 (fold . IM.map Sum) (fold . EMM.map Sum)
+            prop "Level 4" $
+                 runProp4 (fold . IM.map Sum) (fold . EMM.map Sum)

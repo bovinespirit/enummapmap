@@ -70,6 +70,7 @@ import           Prelude hiding (lookup,
 import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import           Data.Default
+import qualified Data.Foldable as FOLD
 import           Data.Maybe (fromMaybe)
 import           Data.Semigroup
 import           GHC.Exts (Word(..), Int(..),
@@ -737,6 +738,20 @@ instance (NFData v, NFData (EnumMapMap t v)) => NFData (EnumMapMap (k :& t) v)
 instance (NFData k, NFData t) => NFData (k :& t)
     where
       rnf (k :& t) = rnf k `seq` rnf t
+
+instance (FOLD.Foldable (EnumMapMap t), Enum k, Eq k, IsKey t, HasSKey t) =>
+    FOLD.Foldable (EnumMapMap (k :& t)) where
+        fold (KCC emm) = go emm
+            where
+              go Nil           = mempty
+              go (Tip _ v)     = FOLD.fold v
+              go (Bin _ _ l r) = go l `mappend` go r
+        foldr = foldr
+        foldMap f (KCC emm) = go emm
+            where
+              go Nil           = mempty
+              go (Tip _ v)     = FOLD.foldMap f v
+              go (Bin _ _ l r) = go l `mappend` go r
 
 instance (IsKey k) => Default (EnumMapMap k v) where
     def = empty
