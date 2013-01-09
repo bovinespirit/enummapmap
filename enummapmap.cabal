@@ -1,5 +1,5 @@
 name:               enummapmap
-version:            0.5.0
+version:            0.6.0
 synopsis:           Map of maps using Enum types as keys
 description:        This package provides 'maps of maps' using Enum types as
                     keys.  The code is based upon Data.IntMap in
