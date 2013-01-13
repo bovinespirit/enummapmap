@@ -137,7 +137,7 @@ instance (Enum k, Eq k) => IsKey (S k) where
             go init' Nil           = init'
             go init' (Tip kx bm)   = foldrBits kx f' init' bm
             go init' (Bin _ _ l r) = go (go init' r) l
-            f' !k t = f (S $ toEnum k) undefined t
+            f' !k = f (S $ toEnum k) undefined
 
     findMin (KSC ems) =
         case ems of
@@ -263,7 +263,7 @@ instance (Enum k, Eq k) => IsKey (S k) where
     equal (KSC ems1) (KSC ems2) = go ems1 ems2
         where
           go (Bin p1 m1 l1 r1) (Bin p2 m2 l2 r2)
-              = (m1 == m2) && (p1 == p2) && (go l1 l2) && (go r1 r2)
+              = (m1 == m2) && (p1 == p2) && go l1 l2 && (go r1 r2)
           go (Tip kx1 bm1) (Tip kx2 bm2)
               = kx1 == kx2 && bm1 == bm2
           go Nil Nil = True
@@ -272,7 +272,7 @@ instance (Enum k, Eq k) => IsKey (S k) where
     nequal (KSC ems1) (KSC ems2) = go ems1 ems2
         where
           go (Bin p1 m1 l1 r1) (Bin p2 m2 l2 r2)
-              = (m1 /= m2) || (p1 /= p2) || (go l1 l2) || (go r1 r2)
+              = (m1 /= m2) || (p1 /= p2) || go l1 l2 || (go r1 r2)
           go (Tip kx1 bm1) (Tip kx2 bm2)
               = kx1 /= kx2 || bm1 /= bm2
           go Nil Nil = False
@@ -345,7 +345,7 @@ delete = EMM.delete
 foldr :: (IsKey k) => (k -> t -> t) -> t -> EnumMapSet k -> t
 foldr f = EMM.foldrWithKey go
     where
-      go k _ z = f k z
+      go k _ = f k
 
 all :: (IsKey k) => (k -> Bool) -> EnumMapSet k -> Bool
 all f = foldr go True
@@ -388,7 +388,7 @@ intersection = EMM.intersection
 fromList :: (IsKey k, EMM.SubKey k k (), EMM.Result k k () ~ ()) =>
             [k] -> EnumMapSet k
 fromList xs
-    = foldlStrict (\t x -> insert x t) empty xs
+    = foldlStrict (flip insert) empty xs
 
 toList :: IsKey k => EnumMapSet k -> [k]
 toList = foldr (:) []
@@ -411,9 +411,7 @@ instance (Enum k1, k1 ~ k2) => EMM.SubKey (S k1) (k2 :& t2) () where
     member !(S key') (EMM.KCC emm) = key `seq` go emm
         where
           go t = case t of
-               EMM.Bin _ m l r -> case zero key m of
-                                    True  -> go l
-                                    False -> go r
+               EMM.Bin _ m l r -> if zero key m then go l else go r
                EMM.Tip kx _    -> key == kx
                EMM.Nil         -> False
           key = fromEnum key'
@@ -570,7 +568,7 @@ bitmapOf x = bitmapOfSuffix (suffixOf x)
 {-# INLINE bitmapOf #-}
 
 bitcount :: Int -> Word -> Int
-bitcount a0 x0 = go a0 x0
+bitcount = go
   where go a 0 = a
         go a x = go (a + 1) (x .&. (x-1))
 {-# INLINE bitcount #-}

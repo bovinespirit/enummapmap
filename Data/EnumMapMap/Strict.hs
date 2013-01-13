@@ -1,6 +1,3 @@
-{-# LANGUAGE CPP, BangPatterns, FlexibleInstances, GeneralizedNewtypeDeriving,
-  MagicHash, MultiParamTypeClasses, TypeFamilies, TypeOperators #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -28,6 +25,10 @@
 --
 -- The functions are strict on values and keys.
 -----------------------------------------------------------------------------
+
+{-# LANGUAGE CPP, BangPatterns, FlexibleInstances, GeneralizedNewtypeDeriving,
+  MagicHash, MultiParamTypeClasses, TypeFamilies, TypeOperators #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Data.EnumMapMap.Strict (
 
@@ -165,7 +166,7 @@ instance (Enum k, Eq k) => IsKey (K k) where
             where
               key = fromEnum key'
 
-    mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> id $! f $! K k) emm
+    mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> f $! K k) emm
     foldr f init (KEC emm) =
         case emm of Bin _ m l r | m < 0 -> go (go init l) r
                                 | otherwise -> go (go init r) l
@@ -199,7 +200,7 @@ instance (Enum k, Eq k) => IsKey (K k) where
               go (Bin _ _ l' _) = go l'
               go Nil            = error "findMin: Nil"
     minViewWithKey (KEC emm) =
-        goat emm >>= \(r, emm') -> return (r, KEC $ emm')
+        goat emm >>= \(r, emm') -> return (r, KEC emm')
             where
               goat t =
                   case t of Nil                 -> Nothing
@@ -287,7 +288,7 @@ type instance Plus (K k1) k2 = k1 :& k2
 instance IsSplit (k :& t) Z where
     type Head (k :& t) Z = K k
     type Tail (k :& t) Z = t
-    splitKey Z (KCC emm) = KEC $ emm
+    splitKey Z (KCC emm) = KEC emm
 
 instance (Enum k1, k1 ~ k2) => SubKey (K k1) (k2 :& t2) v where
     type Result (K k1) (k2 :& t2) v = EnumMapMap t2 v
@@ -317,17 +318,15 @@ instance (Enum k) => SubKeyS (K k) (EMS.S k) where
     differenceSet (KEC emm) (EMS.KSC ems) = KEC $ differenceSet_ emm ems
 
 member_ :: Key -> EMM k v -> Bool
-member_ key emm = go emm
+member_ key = go
     where
       go t = case t of
-               Bin _ m l r -> case zero key m of
-                                True  -> go l
-                                False -> go r
+               Bin _ m l r -> if zero key m then go l else go r
                Tip kx _    -> key == kx
                Nil         -> False
 
 lookup_ :: Key -> EMM k v -> Maybe v
-lookup_ !key emm = go emm
+lookup_ !key = go
     where
       go t = case t of
                Bin _ m l r
@@ -363,7 +362,7 @@ insertWK f !key val = go
             Nil                   -> Tip key val
 
 delete_ :: Key -> EMM k v -> EMM k v
-delete_ !key emm = go emm
+delete_ !key = go
     where go t = case t of
                    Bin p m l r | nomatch key p m -> t
                                | zero key m      -> bin p m (go l) r
@@ -380,8 +379,8 @@ fromSet_ f = go
       go (EMS.Tip key bm)  = buildTree f key bm (EMS.suffixBitMask + 1)
       buildTree g !prefix !bmask bits =
           case bits of
-            0 -> Tip prefix $! (f prefix)
-            _ -> case intFromNat ((natFromInt bits) `shiftRL` 1) of
+            0 -> Tip prefix $! f prefix
+            _ -> case intFromNat (natFromInt bits `shiftRL` 1) of
                    bits2 | bmask .&. ((1 `shiftLL` bits2) -1) == 0 ->
                              buildTree g (prefix + bits2)
                                            (bmask `shiftRL` bits2) bits2
@@ -400,9 +399,9 @@ fromSet_ f = go
 intersectSet_ :: EMM k v -> EMS.EMS k -> EMM k v
 intersectSet_ emm ems =
     mergeWithKey' bin const (const Nil) (const Nil) emm ems'
-        where ems' = fromSet_ (\_ -> ()) ems
+        where ems' = fromSet_ (const ()) ems
 
 differenceSet_ :: EMM k v -> EMS.EMS k -> EMM k v
 differenceSet_ emm ems =
     mergeWithKey' bin (\_ _ -> Nil) id (const Nil) emm ems'
-        where ems' = fromSet_ (\_ -> ()) ems
+        where ems' = fromSet_ (const ()) ems

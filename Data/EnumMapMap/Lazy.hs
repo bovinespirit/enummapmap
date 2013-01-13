@@ -165,7 +165,7 @@ instance (Enum k, Eq k) => IsKey (K k) where
             where
               key = fromEnum key'
 
-    mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> f $ K k) emm
+    mapWithKey f (KEC emm) = KEC $ mapWithKey_ (f . K) emm
     foldr f init (KEC emm) =
         case emm of Bin _ m l r | m < 0 -> go (go init l) r -- put negative numbers before
                                 | otherwise -> go (go init r) l
@@ -174,7 +174,7 @@ instance (Enum k, Eq k) => IsKey (K k) where
           go z' Nil           = z'
           go z' (Tip _ x)     = f x z'
           go z' (Bin _ _ l r) = go (go z' r) l
-    foldrWithKey f init (KEC emm) = foldrWithKey_ (\k -> f $ K k) init emm
+    foldrWithKey f init (KEC emm) = foldrWithKey_ (f . K) init emm
 
     keysSet (KEC emm) = EMS.KSC $ go emm
         where
@@ -201,7 +201,7 @@ instance (Enum k, Eq k) => IsKey (K k) where
               go (Bin _ _ l' _) = go l'
               go Nil            = error "findMin: Nil"
     minViewWithKey (KEC emm) =
-        goat emm >>= \(r, emm') -> return (r, KEC $ emm')
+        goat emm >>= \(r, emm') -> return (r, KEC emm')
             where
               goat t =
                   case t of Nil                 -> Nothing
@@ -287,7 +287,7 @@ type instance Plus (K k1) k2 = k1 :& k2
 instance IsSplit (k :& t) Z where
     type Head (k :& t) Z = K k
     type Tail (k :& t) Z = t
-    splitKey Z (KCC emm) = KEC $ emm
+    splitKey Z (KCC emm) = KEC emm
 
 instance (Enum k1, k1 ~ k2) => SubKey (K k1) (k2 :& t2) v where
     type Result (K k1) (k2 :& t2) v = EnumMapMap t2 v
@@ -318,12 +318,10 @@ instance (Enum k) => SubKeyS (K k) (EMS.S k) where
     differenceSet (KEC emm) (EMS.KSC ems) = KEC $ differenceSet_ emm ems
 
 member_ :: Key -> EMM k v -> Bool
-member_ key emm = go emm
+member_ key = go
     where
       go t = case t of
-               Bin _ m l r -> case zero key m of
-                                True  -> go l
-                                False -> go r
+               Bin _ m l r -> if zero key m then go l else go r
                Tip kx _    -> key == kx
                Nil         -> False
 
@@ -383,7 +381,7 @@ fromSet_ f = go
       buildTree g !prefix !bmask bits =
           case bits of
             0 -> Tip prefix (f prefix)
-            _ -> case intFromNat ((natFromInt bits) `shiftRL` 1) of
+            _ -> case intFromNat (natFromInt bits `shiftRL` 1) of
                    bits2 | bmask .&. ((1 `shiftLL` bits2) -1) == 0 ->
                              buildTree g (prefix + bits2)
                                            (bmask `shiftRL` bits2) bits2
@@ -400,9 +398,9 @@ fromSet_ f = go
 intersectSet_ :: EMM k v -> EMS.EMS k -> EMM k v
 intersectSet_ emm ems =
     mergeWithKey' bin const (const Nil) (const Nil) emm ems'
-        where ems' = fromSet_ (\_ -> ()) ems
+        where ems' = fromSet_ (const ()) ems
 
 differenceSet_ :: EMM k v -> EMS.EMS k -> EMM k v
 differenceSet_ emm ems =
     mergeWithKey' bin (\_ _ -> Nil) id (const Nil) emm ems'
-        where ems' = fromSet_ (\_ -> ()) ems
+        where ems' = fromSet_ (const ()) ems

@@ -199,7 +199,7 @@ class SubKey k1 k2 v where
     insertWith :: (IsKey k1, IsKey k2) =>
                   (Result k1 k2 v -> Result k1 k2 v -> Result k1 k2 v)
                -> k1 -> Result k1 k2 v -> EnumMapMap k2 v -> EnumMapMap k2 v
-    insertWith f = insertWithKey (\_ -> f)
+    insertWith f = insertWithKey (const f)
 
     -- | Insert with a combining function.  Can also insert submaps.
     insertWithKey :: (IsKey k1, IsKey k2) =>
@@ -238,7 +238,7 @@ class HasSKey k where
     toK :: Skey k -> k
 
 instance (HasSKey t) => HasSKey (k :& t) where
-    type Skey (k :& t) = k :& (Skey t)
+    type Skey (k :& t) = k :& Skey t
     toS (k :& t) = (:&) k $! toS t
     toK (k :& t) = (:&) k $! toK t
 
@@ -301,7 +301,7 @@ class (Eq k) => IsKey k where
     alter :: (Maybe v -> Maybe v) -> k -> EnumMapMap k v -> EnumMapMap k v
     -- | Map a function over all values in the 'EnumMapMap'.
     map :: (v -> t) -> EnumMapMap k v -> EnumMapMap k t
-    map f = mapWithKey (\_ -> f)
+    map f = mapWithKey (const f)
     -- | Map a function over all key\/value pairs in the 'EnumMapMap'.
     mapWithKey :: (k -> v -> t) -> EnumMapMap k v -> EnumMapMap k t
     -- | Fold the values in the 'EnumMapMap' using the given right-associative
@@ -353,7 +353,7 @@ class (Eq k) => IsKey k where
     -- | The union with a combining function.
     unionWith :: (v -> v -> v)
               -> EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
-    unionWith f = unionWithKey (\_ -> f)
+    unionWith f = unionWithKey (const f)
     -- | The union with a combining function.
     unionWithKey :: (k -> v -> v -> v)
                  -> EnumMapMap k v -> EnumMapMap k v -> EnumMapMap k v
@@ -364,7 +364,7 @@ class (Eq k) => IsKey k where
                    -> EnumMapMap k v1
                    -> EnumMapMap k v2
                    -> EnumMapMap k v1
-    differenceWith f = differenceWithKey (\_ -> f)
+    differenceWith f = differenceWithKey (const f)
     -- | Difference with a combining function.
     differenceWithKey :: (k -> v1 -> v2 -> Maybe v1)
                       -> EnumMapMap k v1
@@ -379,7 +379,7 @@ class (Eq k) => IsKey k where
                      -> EnumMapMap k v1
                      -> EnumMapMap k v2
                      -> EnumMapMap k v3
-    intersectionWith f = intersectionWithKey (\_ -> f)
+    intersectionWith f = intersectionWithKey (const f)
     -- | The intersection with a combining function.
     intersectionWithKey :: (k -> v1 -> v2 -> v3)
                         -> EnumMapMap k v1
@@ -464,7 +464,7 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
                    Tip k v     -> tip k (removeEmpties v)
                    Nil         -> Nil
 
-    unsafeJoinKey (KCC emm) = KCC $ mapWithKey_ (\_ -> unsafeJoinKey) emm
+    unsafeJoinKey (KCC emm) = KCC $ mapWithKey_ (const unsafeJoinKey) emm
 
     empty = KCC Nil
 
@@ -492,7 +492,7 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
         where
           go k val z = foldrWithKey (\nxt -> f $! k :& nxt) z val
 
-    keysSet (KCC emm) = KCC $ mapWithKey_ (\_ -> keysSet) emm
+    keysSet (KCC emm) = KCC $ mapWithKey_ (const keysSet) emm
 
     fromSet f (KCC ems) = KCC $ mapWithKey_ go ems
         where
@@ -512,7 +512,7 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
               go Nil            = error "findMin: Nil"
 
     minViewWithKey (KCC emm) =
-        goat emm >>= \(r, emm') -> return (r, KCC $ emm')
+        goat emm >>= \(r, emm') -> return (r, KCC emm')
             where
               goat t =
                   case t of
@@ -526,7 +526,7 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
                                    (result, l') -> (result, binD p m l' r)
               go (Tip k y) = case minViewWithKey y of
                                Just ((t, v), y') ->
-                                   (((toEnum k) :& t, v), tip k y')
+                                   ((toEnum k :& t, v), tip k y')
                                Nothing -> error "minViewWithKey: Nothing"
               go Nil = error "minViewWithKey Nil"
 
@@ -888,7 +888,7 @@ highestBitMask x0
        x3 -> case (x3 .|. shiftRL x3 8) of
         x4 -> case (x4 .|. shiftRL x4 16) of
          x5 -> case (x5 .|. shiftRL x5 32) of   -- for 64 bit platforms
-          x6 -> (x6 `xor` (shiftRL x6 1))
+          x6 -> (x6 `xor` shiftRL x6 1)
 {-# INLINE highestBitMask #-}
 
 {--------------------------------------------------------------------

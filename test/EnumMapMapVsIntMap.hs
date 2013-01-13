@@ -407,16 +407,16 @@ main = hspec $ do
         let go f (a, b) = (f a, b)
         prop "Level 1" $ \list ->
              (not $ L.null list) ==>
-                 runProp (IM.findMin) (go unKey1 . EMM.findMin) list
+                 runProp IM.findMin (go unKey1 . EMM.findMin) list
         prop "Level 2" $ \k1 list ->
              (not $ L.null list) ==>
-                 runProp2 (IM.findMin) (go unKey2 . EMM.findMin) k1 list
+                 runProp2 IM.findMin (go unKey2 . EMM.findMin) k1 list
         prop "Level 3" $ \k1 k2 list ->
              (not $ L.null list) ==>
-                 runProp3 (IM.findMin) (go unKey3 . EMM.findMin) k1 k2 list
+                 runProp3 IM.findMin (go unKey3 . EMM.findMin) k1 k2 list
         prop "Level 4" $ \k1 k2 k3 list ->
              (not $ L.null list) ==>
-                 runProp4 (IM.findMin) (go unKey4 . EMM.findMin) k1 k2 k3 list
+                 runProp4 IM.findMin (go unKey4 . EMM.findMin) k1 k2 k3 list
 
     describe "minViewWithKey" $ do
         let goe _ Nothing = Nothing
@@ -514,23 +514,23 @@ main = hspec $ do
 
     describe "keys" $ do
         prop "Level 1" $
-             runProp (IM.keys) (map (\(K k) -> k) . EMM.keys)
+             runProp IM.keys (map (\(K k) -> k) . EMM.keys)
         prop "Level 2" $
-             runProp2 (IM.keys) (map (\(k :& _) -> k) . EMM.keys)
+             runProp2 IM.keys (map (\(k :& _) -> k) . EMM.keys)
         prop "Level 3" $
-             runProp3 (IM.keys) (map (\(k :& _) -> k) . EMM.keys)
+             runProp3 IM.keys (map (\(k :& _) -> k) . EMM.keys)
         prop "Level 4" $
-             runProp4 (IM.keys) (map (\(k :& _) -> k) . EMM.keys)
+             runProp4 IM.keys (map (\(k :& _) -> k) . EMM.keys)
 
     describe "elems" $ do
         prop "Level 1" $
-             runProp (IM.elems) (EMM.elems)
+             runProp IM.elems EMM.elems
         prop "Level 2" $
-             runProp2 (IM.elems) (EMM.elems)
+             runProp2 IM.elems EMM.elems
         prop "Level 3" $
-             runProp3 (IM.elems) (EMM.elems)
+             runProp3 IM.elems EMM.elems
         prop "Level 4" $
-             runProp4 (IM.elems) (EMM.elems)
+             runProp4 IM.elems EMM.elems
 
     describe "keysSet" $ do
         prop "Level 1" $
