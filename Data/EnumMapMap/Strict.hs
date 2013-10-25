@@ -74,6 +74,8 @@ module Data.EnumMapMap.Strict (
             -- * Map
             map,
             mapWithKey,
+            mapMaybe,
+            mapMaybeWithKey,
             -- * Folds
             foldr,
             foldrWithKey,
@@ -167,6 +169,14 @@ instance (Enum k, Eq k) => IsKey (K k) where
               key = fromEnum key'
 
     mapWithKey f (KEC emm) = KEC $ mapWithKey_ (\k -> f $! K k) emm
+    mapMaybeWithKey f (KEC emm) = KEC $ go emm
+        where
+          go (Bin p m l r) = bin p m (go l) (go r)
+          go (Tip k x)     = case f (K $! toEnum k) x of
+                               Just !y -> Tip k y
+                               Nothing -> Nil
+          go Nil           = Nil
+
     foldr f init (KEC emm) =
         case emm of Bin _ m l r | m < 0 -> go (go init l) r
                                 | otherwise -> go (go init r) l

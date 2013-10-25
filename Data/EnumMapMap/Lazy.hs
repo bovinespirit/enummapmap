@@ -73,6 +73,8 @@ module Data.EnumMapMap.Lazy (
             -- * Map
             map,
             mapWithKey,
+            mapMaybe,
+            mapMaybeWithKey,
             -- * Folds
             foldr,
             foldrWithKey,
@@ -166,6 +168,14 @@ instance (Enum k, Eq k) => IsKey (K k) where
               key = fromEnum key'
 
     mapWithKey f (KEC emm) = KEC $ mapWithKey_ (f . K) emm
+    mapMaybeWithKey f (KEC emm) = KEC $ go emm
+        where
+          go (Bin p m l r) = bin p m (go l) (go r)
+          go (Tip k x)     = case f (K $! toEnum k) x of
+                               Just y -> Tip k y
+                               Nothing -> Nil
+          go Nil           = Nil
+
     foldr f init (KEC emm) =
         case emm of Bin _ m l r | m < 0 -> go (go init l) r -- put negative numbers before
                                 | otherwise -> go (go init r) l

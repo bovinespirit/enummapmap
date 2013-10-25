@@ -403,6 +403,32 @@ main = hspec $ do
         prop "Level 4" $
              runPropL4 (IM.mapWithKey f) (EMM.mapWithKey (f . unKey4))
 
+    describe "mapMaybe" $ do
+        let f a
+                | a > 2 = Just $ 1 + a
+                | otherwise = Nothing
+        prop "Level 1" $
+             runPropL  (IM.mapMaybe f) (EMM.mapMaybe f)
+        prop "Level 2" $
+             runPropL2 (IM.mapMaybe f) (EMM.mapMaybe f)
+        prop "Level 3" $
+             runPropL3 (IM.mapMaybe f) (EMM.mapMaybe f)
+        prop "Level 4" $
+             runPropL4 (IM.mapMaybe f) (EMM.mapMaybe f)
+
+    describe "mapMaybeWithKey" $ do
+        let f k a
+                | a > 2 = Just $ k + a
+                | otherwise = Nothing
+        prop "Level 1" $
+             runPropL  (IM.mapMaybeWithKey f) (EMM.mapMaybeWithKey (f . unKey1))
+        prop "Level 2" $
+             runPropL2 (IM.mapMaybeWithKey f) (EMM.mapMaybeWithKey (f . unKey2))
+        prop "Level 3" $
+             runPropL3 (IM.mapMaybeWithKey f) (EMM.mapMaybeWithKey (f . unKey3))
+        prop "Level 4" $
+             runPropL4 (IM.mapMaybeWithKey f) (EMM.mapMaybeWithKey (f . unKey4))
+
     describe "findMin" $ do
         let go f (a, b) = (f a, b)
         prop "Level 1" $ \list ->

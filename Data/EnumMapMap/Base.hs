@@ -38,6 +38,7 @@ module Data.EnumMapMap.Base(
             -- ** EMM internals
             mergeWithKey',
             mapWithKey_,
+            mapMaybeWithKey_,
             foldrWithKey_,
             foldlStrict,
             -- ** IntMap internals
@@ -302,6 +303,11 @@ class (Eq k) => IsKey k where
     -- | Map a function over all values in the 'EnumMapMap'.
     map :: (v -> t) -> EnumMapMap k v -> EnumMapMap k t
     map f = mapWithKey (const f)
+    -- |  Map values and collect the 'Just' results.
+    mapMaybe :: (v -> Maybe t) -> EnumMapMap k v -> EnumMapMap k t
+    mapMaybe f = mapMaybeWithKey (\_ x -> f x)
+    -- | Map keys\/values and collect the 'Just' results.
+    mapMaybeWithKey :: (k -> v -> Maybe t) -> EnumMapMap k v -> EnumMapMap k t
     -- | Map a function over all key\/value pairs in the 'EnumMapMap'.
     mapWithKey :: (k -> v -> t) -> EnumMapMap k v -> EnumMapMap k t
     -- | Fold the values in the 'EnumMapMap' using the given right-associative
@@ -486,6 +492,10 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
         where
           go k = mapWithKey (\nxt -> f $! k :& nxt)
 
+    mapMaybeWithKey f (KCC emm) = KCC $ mapMaybeWithKey_ go emm
+        where
+          go k = mapMaybeWithKey (\nxt -> f $! k :& nxt)
+
     foldr f init (KCC emm) = foldrWithKey_ (\_ val z -> foldr f z val) init emm
 
     foldrWithKey f init (KCC emm) = foldrWithKey_ go init emm
@@ -614,6 +624,17 @@ mapWithKey_ f = go
       go (Tip k x)     = Tip k (f (toEnum k) x)
       go Nil           = Nil
 {-# INLINE mapWithKey_ #-}
+
+mapMaybeWithKey_ :: (IsKey b, Enum key) =>
+                    (key -> EnumMapMap b v -> EnumMapMap b t) ->
+                    EMM a (EnumMapMap b v) ->
+                    EMM a (EnumMapMap b t)
+mapMaybeWithKey_ f = go
+    where
+      go (Bin p m l r) = binD p m (go l) (go r)
+      go (Tip k x)     = tip k $ f (toEnum k) x
+      go Nil           = Nil
+{-# INLINE mapMaybeWithKey_ #-}
 
 foldrWithKey_ :: (Enum k) => (k -> v -> t -> t) -> t -> EMM k v -> t
 foldrWithKey_ f z = \emm ->

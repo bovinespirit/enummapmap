@@ -282,6 +282,7 @@ instance (Enum k, Eq k) => IsKey (S k) where
     foldr = undefined
     map = undefined
     mapWithKey = undefined
+    mapMaybeWithKey = undefined
     unionWith = undefined
     unionWithKey = undefined
     differenceWith = undefined
