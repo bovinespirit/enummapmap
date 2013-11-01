@@ -283,6 +283,7 @@ instance (Enum k, Eq k) => IsKey (S k) where
     map = undefined
     mapWithKey = undefined
     mapMaybeWithKey = undefined
+    traverseWithKey = undefined
     unionWith = undefined
     unionWithKey = undefined
     differenceWith = undefined

@@ -11,12 +11,14 @@ import           Test.Hspec
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck ((==>))
 
+import           Control.Monad(liftM)
 import qualified Data.IntSet as IS
 import           Data.EnumMapSet (S(..))
 import qualified Data.EnumMapSet as EMS
 import           Data.Foldable (foldMap, fold)
 import qualified Data.List as L
 import           Data.Semigroup
+import           Data.Traversable (Traversable(traverse))
 
 #ifdef LAZY
 import qualified Data.IntMap as IM
@@ -168,7 +170,7 @@ runPropL :: (IM.IntMap Int -> IM.IntMap Int)
          -> [(Int, Int)]
          -> Bool
 runPropL f g =
-    runProp (list2l1 . IM.toList . f) (EMM.toList  . g)
+    runProp (list2l1 . IM.toList . f) (EMM.toList . g)
 
 runPropDuoL :: (IM.IntMap Int -> IM.IntMap Int -> IM.IntMap Int)
             -> (TestMap -> TestMap -> TestMap)
@@ -178,6 +180,14 @@ runPropDuoL :: (IM.IntMap Int -> IM.IntMap Int -> IM.IntMap Int)
 runPropDuoL f g =
     runPropDuo (\a b -> list2l1 $ IM.toList $ f a b)
                    (\a b -> EMM.toList $ g a b)
+
+runPropLM :: (Monad m, Eq (m [(K Int, Int)])) =>
+             (IM.IntMap Int -> m (IM.IntMap Int))
+          -> (TestMap -> m TestMap)
+          -> [(Int, Int)]
+          -> Bool
+runPropLM f g =
+    runProp (liftM (list2l1 . IM.toList) . f) (liftM EMM.toList . g)
 
 runPropL2 :: (IM.IntMap Int -> IM.IntMap Int)
           -> (TestMap2 -> TestMap2)
@@ -196,6 +206,15 @@ runPropDuoL2 :: (IM.IntMap Int -> IM.IntMap Int -> IM.IntMap Int)
 runPropDuoL2 f g k1 =
     runPropDuo2 (\a b -> list2l2 k1 $ IM.toList $ f a b)
                     (\a b -> EMM.toList $ g a b) k1
+
+runPropLM2 :: (Monad m, Eq (m [(Int :& K Int, Int)])) =>
+              (IM.IntMap Int -> m (IM.IntMap Int))
+           -> (TestMap2 -> m TestMap2)
+           -> Int
+           -> [(Int, Int)]
+           -> Bool
+runPropLM2 f g k1 =
+    runProp2 (liftM (list2l2 k1 . IM.toList) . f) (liftM EMM.toList . g) k1
 
 runPropL3 :: (IM.IntMap Int -> IM.IntMap Int)
           -> (TestMap3 -> TestMap3)
@@ -428,6 +447,27 @@ main = hspec $ do
              runPropL3 (IM.mapMaybeWithKey f) (EMM.mapMaybeWithKey (f . unKey3))
         prop "Level 4" $
              runPropL4 (IM.mapMaybeWithKey f) (EMM.mapMaybeWithKey (f . unKey4))
+
+    describe "traverseWithKey" $ do
+        let f k v = if odd k then
+                         Just (succ v)
+                     else
+                         Nothing
+
+        prop "Level 1" $
+             runPropLM  (IM.traverseWithKey f) (EMM.traverseWithKey (f . unKey1))
+        prop "Level 2" $
+             runPropLM2 (IM.traverseWithKey f) (EMM.traverseWithKey (f . unKey2))
+
+    describe "traverse" $ do
+        let f v = if odd v then
+                       Just (succ v)
+                   else
+                       Nothing
+        prop "Level 1" $
+             runPropLM  (traverse f) (traverse f)
+        prop "Level 2" $
+             runPropLM2 (traverse f) (traverse f)
 
     describe "findMin" $ do
         let go f (a, b) = (f a, b)

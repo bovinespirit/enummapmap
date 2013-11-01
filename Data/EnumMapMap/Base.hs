@@ -1,6 +1,14 @@
-{-# LANGUAGE MagicHash, TypeFamilies, MultiParamTypeClasses,
-    BangPatterns, FlexibleInstances, TypeOperators,
-    FlexibleContexts, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE
+    BangPatterns
+  , FlexibleContexts
+  , FlexibleInstances
+  , GeneralizedNewtypeDeriving
+  , MagicHash
+  , MultiParamTypeClasses
+  , TypeFamilies
+  , TypeOperators
+  , UndecidableInstances
+ #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -39,6 +47,7 @@ module Data.EnumMapMap.Base(
             mergeWithKey',
             mapWithKey_,
             mapMaybeWithKey_,
+            traverseWithKey_,
             foldrWithKey_,
             foldlStrict,
             -- ** IntMap internals
@@ -68,12 +77,14 @@ import           Prelude hiding (lookup,
                                  null, init,
                                  head, tail)
 
+import           Control.Applicative (Applicative(pure,(<*>)),(<$>))
 import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import           Data.Default
 import qualified Data.Foldable as FOLD
 import           Data.Maybe (fromMaybe)
 import           Data.Semigroup
+import           Data.Traversable (Traversable(traverse))
 import           GHC.Exts (Word(..), Int(..),
                            uncheckedShiftRL#, uncheckedShiftL#)
 
@@ -310,8 +321,13 @@ class (Eq k) => IsKey k where
     mapMaybeWithKey :: (k -> v -> Maybe t) -> EnumMapMap k v -> EnumMapMap k t
     -- | Map a function over all key\/value pairs in the 'EnumMapMap'.
     mapWithKey :: (k -> v -> t) -> EnumMapMap k v -> EnumMapMap k t
-    -- | Fold the values in the 'EnumMapMap' using the given right-associative
-    -- binary operator
+    -- | @TraverseWithKey@ behaves exactly like a regular 'traverse' except that
+    -- the traversing function also has access to the key associated with a
+    -- value.
+    traverseWithKey :: (Applicative t) =>
+                       (k -> a -> t b) -> EnumMapMap k a -> t (EnumMapMap k b)
+    -- | Fold the values in the 'EnumMapMap' using the given
+    -- right-associative binary operator
     foldr :: (v -> t -> t) -> t -> EnumMapMap k v -> t
     -- | Fold the keys and values in the 'EnumMapMap' using the given right-associative
     -- binary operator.
@@ -496,6 +512,10 @@ instance (Eq k, Enum k, IsKey t, HasSKey t) => IsKey (k :& t) where
         where
           go k = mapMaybeWithKey (\nxt -> f $! k :& nxt)
 
+    traverseWithKey f (KCC emm) = KCC <$> traverseWithKey_ go emm
+        where
+          go k = traverseWithKey (\nxt -> f $! k :& nxt)
+
     foldr f init (KCC emm) = foldrWithKey_ (\_ val z -> foldr f z val) init emm
 
     foldrWithKey f init (KCC emm) = foldrWithKey_ go init emm
@@ -636,6 +656,14 @@ mapMaybeWithKey_ f = go
       go Nil           = Nil
 {-# INLINE mapMaybeWithKey_ #-}
 
+traverseWithKey_ :: (Enum k, Applicative t) =>
+                    (k -> a -> t b) -> EMM k a -> t (EMM k b)
+traverseWithKey_ f = go
+    where
+      go Nil = pure Nil
+      go (Tip k v) = Tip k <$> f (toEnum k) v
+      go (Bin p m l r) = Bin p m <$> go l <*> go r
+
 foldrWithKey_ :: (Enum k) => (k -> v -> t -> t) -> t -> EMM k v -> t
 foldrWithKey_ f z = \emm ->
     case emm of Bin _ m l r | m < 0     -> go (go z l) r
@@ -773,6 +801,10 @@ instance (FOLD.Foldable (EnumMapMap t), Enum k, Eq k, IsKey t, HasSKey t) =>
               go Nil           = mempty
               go (Tip _ v)     = FOLD.foldMap f v
               go (Bin _ _ l r) = go l `mappend` go r
+
+instance (IsKey k, FOLD.Foldable (EnumMapMap k)) =>
+    Traversable (EnumMapMap k) where
+        traverse f = traverseWithKey (\_ -> f)
 
 instance (IsKey k) => Default (EnumMapMap k v) where
     def = empty

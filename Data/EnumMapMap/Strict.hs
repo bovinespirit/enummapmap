@@ -76,6 +76,7 @@ module Data.EnumMapMap.Strict (
             mapWithKey,
             mapMaybe,
             mapMaybeWithKey,
+            traverseWithKey,
             -- * Folds
             foldr,
             foldrWithKey,
@@ -100,6 +101,7 @@ module Data.EnumMapMap.Strict (
 
 import           Prelude hiding (lookup,map,filter,foldr,foldl,null, init)
 
+import           Control.Applicative ((<$>))
 import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import qualified Data.Foldable as FOLD
@@ -176,6 +178,8 @@ instance (Enum k, Eq k) => IsKey (K k) where
                                Just !y -> Tip k y
                                Nothing -> Nil
           go Nil           = Nil
+
+    traverseWithKey f (KEC emm) = KEC <$> traverseWithKey_ (\k -> f $! K k) emm
 
     foldr f init (KEC emm) =
         case emm of Bin _ m l r | m < 0 -> go (go init l) r
