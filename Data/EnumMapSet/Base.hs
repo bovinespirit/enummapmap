@@ -1,8 +1,3 @@
-{-# LANGUAGE BangPatterns, CPP, FlexibleContexts, FlexibleInstances,
- GeneralizedNewtypeDeriving, MagicHash, MultiParamTypeClasses, TypeFamilies,
- TypeOperators #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Data.EnumMapSet
@@ -16,6 +11,20 @@
 -- Based on Data.IntSet.Base
 --
 -----------------------------------------------------------------------------
+
+{-# LANGUAGE
+  BangPatterns,
+  CPP,
+  DeriveDataTypeable,
+  FlexibleInstances,
+  FlexibleContexts,
+  GeneralizedNewtypeDeriving,
+  MagicHash,
+  MultiParamTypeClasses,
+  StandaloneDeriving,
+  TypeFamilies,
+  TypeOperators #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Data.EnumMapSet.Base (
             EnumMapSet,
@@ -63,6 +72,7 @@ import           Prelude hiding (lookup, map, filter, foldr, foldl,
 import           Data.Bits
 import qualified Data.List as List
 import           Data.Maybe (fromMaybe)
+import           Data.Typeable
 import           GHC.Exts (Word(..), Int(..))
 import           GHC.Prim (indexInt8OffAddr#)
 #include "MachDeps.h"
@@ -486,6 +496,8 @@ instance (Enum k) => EMM.SubKey (S k) (S k) () where
 
 instance (Show v) => Show (EnumMapMap (S k) v) where
     show (KSC ems) = show ems
+
+deriving instance Typeable1 S
 
 {---------------------------------------------------------------------
   Helper functions

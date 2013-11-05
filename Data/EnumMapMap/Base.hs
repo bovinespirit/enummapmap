@@ -1,13 +1,15 @@
 {-# LANGUAGE
-    BangPatterns
-  , FlexibleContexts
-  , FlexibleInstances
-  , GeneralizedNewtypeDeriving
-  , MagicHash
-  , MultiParamTypeClasses
-  , TypeFamilies
-  , TypeOperators
-  , UndecidableInstances
+      BangPatterns,
+      DeriveDataTypeable,
+      FlexibleContexts,
+      FlexibleInstances,
+      GeneralizedNewtypeDeriving,
+      MagicHash,
+      MultiParamTypeClasses,
+      StandaloneDeriving,
+      TypeFamilies,
+      TypeOperators,
+      UndecidableInstances
  #-}
 
 -----------------------------------------------------------------------------
@@ -85,6 +87,7 @@ import qualified Data.Foldable as FOLD
 import           Data.Maybe (fromMaybe)
 import           Data.Semigroup
 import           Data.Traversable (Traversable(traverse))
+import           Data.Typeable
 import           GHC.Exts (Word(..), Int(..),
                            uncheckedShiftRL#, uncheckedShiftL#)
 
@@ -808,6 +811,9 @@ instance (IsKey k, FOLD.Foldable (EnumMapMap k)) =>
 
 instance (IsKey k) => Default (EnumMapMap k v) where
     def = empty
+
+deriving instance Typeable2 (:&)
+deriving instance Typeable2 EnumMapMap
 
 {--------------------------------------------------------------------
   Nat conversion

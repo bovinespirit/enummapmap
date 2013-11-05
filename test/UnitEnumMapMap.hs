@@ -1,5 +1,6 @@
 {-# LANGUAGE
   CPP,
+  DeriveDataTypeable,
   FlexibleContexts,
   FlexibleInstances,
   GeneralizedNewtypeDeriving,
@@ -13,6 +14,7 @@ import           Control.Exception
 import           Control.Monad (liftM, liftM2)
 import qualified Data.Foldable as Foldable
 import           Data.Semigroup
+import           Data.Typeable
 import           Test.Hspec.Expectations
 import           Test.Hspec.HUnit ()
 import           Test.Hspec
@@ -46,11 +48,11 @@ instance (Arbitrary k, Arbitrary v,
                                    return (key, val)
 
 newtype ID1 = ID1 Int
-    deriving (Show, Enum, Arbitrary, Eq, Num)
+    deriving (Show, Enum, Arbitrary, Eq, Num, Typeable)
 newtype ID2 = ID2 Int
-    deriving (Show, Enum, Arbitrary, Eq, Num)
+    deriving (Show, Enum, Arbitrary, Eq, Num, Typeable)
 newtype ID3 = ID3 Int
-    deriving (Show, Enum, Arbitrary, Eq, Num)
+    deriving (Show, Enum, Arbitrary, Eq, Num, Typeable)
 
 type TestKey1 = K ID1
 type TestEmm1 = EnumMapMap TestKey1 Int
@@ -422,3 +424,9 @@ main =
              False @=? Foldable.any (< 1) l1tens
           it "Level 1 false" $
              True @=? Foldable.any (< 2) l1tens
+
+    describe "Typeable Instance" $ do
+      it "TypeOf is unique when ID types differ" $
+         ((typeOf l1IDtens) == (typeOf l1tens)) @?= False
+      it "TypeOf is unique when different levels" $
+         ((typeOf l2tens) == (typeOf l1tens)) @?= False

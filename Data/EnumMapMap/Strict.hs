@@ -26,9 +26,19 @@
 -- The functions are strict on values and keys.
 -----------------------------------------------------------------------------
 
-{-# LANGUAGE CPP, BangPatterns, FlexibleInstances, GeneralizedNewtypeDeriving,
-  MagicHash, MultiParamTypeClasses, TypeFamilies, TypeOperators #-}
+{-# LANGUAGE
+  CPP,
+  BangPatterns,
+  DeriveDataTypeable,
+  FlexibleInstances,
+  GeneralizedNewtypeDeriving,
+  MagicHash,
+  MultiParamTypeClasses,
+  StandaloneDeriving,
+  TypeFamilies,
+  TypeOperators #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 
 module Data.EnumMapMap.Strict (
 
@@ -106,6 +116,7 @@ import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import qualified Data.Foldable as FOLD
 import           Data.Semigroup
+import           Data.Typeable
 
 import           Data.EnumMapMap.Base
 import qualified Data.EnumMapSet.Base as EMS
@@ -292,6 +303,8 @@ instance HasSKey (K k) where
     type Skey (K k) = EMS.S k
     toS (K !k) = EMS.S k
     toK (EMS.S !k) = K k
+
+deriving instance Typeable1 K
 
 {---------------------------------------------------------------------
  Split/Join Keys
