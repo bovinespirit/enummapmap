@@ -35,7 +35,8 @@
   MultiParamTypeClasses,
   StandaloneDeriving,
   TypeFamilies,
-  TypeOperators #-}
+  TypeOperators,
+  UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Data.EnumMapMap.Lazy (
@@ -113,6 +114,7 @@ import           Control.Applicative ((<$>))
 import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import qualified Data.Foldable as FOLD
+import           Data.SafeCopy
 import           Data.Semigroup
 import           Data.Typeable
 
@@ -303,6 +305,20 @@ instance HasSKey (K k) where
     toK (EMS.S !k) = K k
 
 deriving instance Typeable1 K
+
+instance (Enum k) => SafeCopy (K k) where
+    getCopy = contain $ do
+                k <- safeGet
+                return $ K $ toEnum k
+    putCopy (K k) = contain $ safePut $ fromEnum k
+    errorTypeName _ = "K"
+
+-- We put this here so that it doesn't interfere with EnumMapSet version
+instance (SafeCopy k, SafeCopy v, IsKey k, Result k k v ~ v, SubKey k k v) =>
+    SafeCopy (EnumMapMap k v) where
+        getCopy = contain $ fmap fromList safeGet
+        putCopy = contain . safePut . toList
+        errorTypeName _ = "EnumMapMap"
 
 {---------------------------------------------------------------------
  Split/Join Keys

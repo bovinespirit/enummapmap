@@ -85,6 +85,7 @@ import           Data.Bits
 import           Data.Default
 import qualified Data.Foldable as FOLD
 import           Data.Maybe (fromMaybe)
+import           Data.SafeCopy
 import           Data.Semigroup
 import           Data.Traversable (Traversable(traverse))
 import           Data.Typeable
@@ -791,6 +792,8 @@ instance (NFData k, NFData t) => NFData (k :& t)
     where
       rnf (k :& t) = rnf k `seq` rnf t
 
+-- Foldable
+
 instance (FOLD.Foldable (EnumMapMap t), Enum k, Eq k, IsKey t, HasSKey t) =>
     FOLD.Foldable (EnumMapMap (k :& t)) where
         fold (KCC emm) = go emm
@@ -809,11 +812,27 @@ instance (IsKey k, FOLD.Foldable (EnumMapMap k)) =>
     Traversable (EnumMapMap k) where
         traverse f = traverseWithKey (\_ -> f)
 
+-- Default
+
 instance (IsKey k) => Default (EnumMapMap k v) where
     def = empty
 
+-- Typeable
+
 deriving instance Typeable2 (:&)
 deriving instance Typeable2 EnumMapMap
+
+-- SafeCopy
+
+instance (Enum a, SafeCopy b) => SafeCopy (a :& b) where
+    getCopy = contain $ do
+                a <- safeGet
+                b <- safeGet
+                return (toEnum a :& b)
+    putCopy (a :& b) = contain $ do
+                         safePut $ fromEnum a
+                         safePut b
+    errorTypeName _ = "(:&)"
 
 {--------------------------------------------------------------------
   Nat conversion

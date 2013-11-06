@@ -27,6 +27,9 @@
 module Data.EnumMapSet (
             EnumMapSet,
             S(..), (:&)(..),
+            Result,
+            IsKey,
+            SubKey,
             -- * Query
             EMS.null,
             size,

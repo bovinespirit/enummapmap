@@ -23,12 +23,16 @@
   MultiParamTypeClasses,
   StandaloneDeriving,
   TypeFamilies,
-  TypeOperators #-}
+  TypeOperators,
+  UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Data.EnumMapSet.Base (
             EnumMapSet,
             S(..), (:&)(..),
+            EMM.Result,
+            EMM.IsKey,
+            EMM.SubKey,
             -- * Query
             null,
             size,
@@ -72,6 +76,7 @@ import           Prelude hiding (lookup, map, filter, foldr, foldl,
 import           Data.Bits
 import qualified Data.List as List
 import           Data.Maybe (fromMaybe)
+import           Data.SafeCopy
 import           Data.Typeable
 import           GHC.Exts (Word(..), Int(..))
 import           GHC.Prim (indexInt8OffAddr#)
@@ -498,6 +503,21 @@ instance (Show v) => Show (EnumMapMap (S k) v) where
     show (KSC ems) = show ems
 
 deriving instance Typeable1 S
+
+instance (Enum s) => SafeCopy (S s) where
+    getCopy = contain $ do
+                s <- safeGet
+                return $ S $ toEnum s
+    putCopy (S s) = contain $ safePut $ fromEnum s
+    errorTypeName _ = "S"
+
+-- This can't live in EnumMapMap.Base because it calls the undefined toList and
+-- fromList functions
+instance (SafeCopy k, EMM.IsKey k, EMM.Result k k () ~ (), EMM.SubKey k k ()) =>
+    SafeCopy (EnumMapSet k) where
+        getCopy = contain $ fmap fromList safeGet
+        putCopy = contain . safePut . toList
+        errorTypeName _ = "EnumMapSet"
 
 {---------------------------------------------------------------------
   Helper functions

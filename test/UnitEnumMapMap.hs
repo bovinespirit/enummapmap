@@ -13,14 +13,19 @@
 import           Control.Exception
 import           Control.Monad (liftM, liftM2)
 import qualified Data.Foldable as Foldable
+import           Data.SafeCopy
+import           Data.Serialize.Get (runGet)
+import           Data.Serialize.Put (runPut)
 import           Data.Semigroup
 import           Data.Typeable
+
 import           Test.Hspec.Expectations
 import           Test.Hspec.HUnit ()
 import           Test.Hspec
 import           Test.Hspec.QuickCheck (prop)
 import           Test.HUnit
 import           Test.QuickCheck (Arbitrary, arbitrary, shrink, listOf)
+
 import qualified Data.EnumMapSet as EMS
 
 #ifdef LAZY
@@ -430,3 +435,10 @@ main =
          ((typeOf l1IDtens) == (typeOf l1tens)) @?= False
       it "TypeOf is unique when different levels" $
          ((typeOf l2tens) == (typeOf l1tens)) @?= False
+
+    describe "SafeCopy instance" $ do
+      let testEq :: TestEmm3 -> Bool
+          testEq emm = op == Right emm
+              where
+                op = runGet safeGet $ runPut $ safePut emm
+      prop "Leaves data intact" testEq
