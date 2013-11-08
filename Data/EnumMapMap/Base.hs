@@ -6,6 +6,7 @@
       GeneralizedNewtypeDeriving,
       MagicHash,
       MultiParamTypeClasses,
+      OverlappingInstances,
       StandaloneDeriving,
       TypeFamilies,
       TypeOperators,
@@ -38,6 +39,7 @@ module Data.EnumMapMap.Base(
             Plus,
             SubKey(..),
             -- * Internal
+            MkNestedPair(..),
             -- ** IsEMM
             EMM(..),
             IsKey(..),
@@ -172,6 +174,21 @@ instance (IsSplit t n, Enum k) => IsSplit (k :& t) (N n) where
 
 type family Plus k1 k2 :: *
 type instance Plus (k1 :& t) k2 = k1 :& Plus t k2
+
+-- | This is used by the SafeCopy instance.  It strips the constructors and Enum
+-- from the key so that
+-- > NestedPair (T1 :& T2 :& K T3) v ~ (Int, (Int, (Int, v)))
+class MkNestedPair k v where
+    type NestedPair k v :: *
+    nestedPair :: k -> v -> NestedPair k v
+    unNestedPair :: NestedPair k v -> (k ,v)
+
+instance (MkNestedPair t v, Enum k) => MkNestedPair (k :& t) v where
+    type NestedPair (k :& t) v = (Int, NestedPair t v)
+    nestedPair (k :& t) v = (fromEnum k, nestedPair t v)
+    unNestedPair (k, x) = (toEnum k :& t, v)
+        where
+          (t, v) = unNestedPair x
 
 class SubKey k1 k2 v where
     -- | k1 should be a prefix of k2.  If @k1 ~ k2@ then the 'Result' will be
@@ -336,13 +353,29 @@ class (Eq k) => IsKey k where
     -- | Fold the keys and values in the 'EnumMapMap' using the given right-associative
     -- binary operator.
     foldrWithKey :: (k -> v -> t -> t) -> t -> EnumMapMap k v -> t
-    -- |  Convert the 'EnumMapMap' to a list of key\/value pairs.
+    -- | Convert the 'EnumMapMap' to a list of key\/value pairs.
     toList :: SubKey k k v =>
               EnumMapMap k v -> [(k, v)]
     toList = foldrWithKey (\k x xs -> (k, x):xs) []
-    -- | Create a 'EnumMapMap' from a list of key\/value pairs.
+    -- | Convert the 'EnumMapMap' to a list of nested tuples
+    toNestedPairList :: (SubKey k k v, MkNestedPair k v) =>
+                        EnumMapMap k v -> [NestedPair k v]
+    toNestedPairList = foldrWithKey (\k x xs -> (nestedPair k x):xs) []
+    -- | Create an 'EnumMapMap' from a list of key\/value pairs.
     fromList :: (SubKey k k v, Result k k v ~ v) => [(k, v)] -> EnumMapMap k v
     fromList = foldlStrict (\t (k, x) -> insert k x t) empty
+    -- | Create an 'EnumMapMap' from a list of nested tuples
+    fromNestedPairList :: (SubKey k k v, Result k k v ~ v, MkNestedPair k v) =>
+                          [NestedPair k v] -> EnumMapMap k v
+    fromNestedPairList = foldlStrict f empty
+        where
+          f :: (IsKey k, SubKey k k v, Result k k v ~ v, MkNestedPair k v) =>
+               EnumMapMap k v -> NestedPair k v -> EnumMapMap k v
+          f emm = g emm . unNestedPair
+          g :: (IsKey k, SubKey k k v, Result k k v ~ v) =>
+               EnumMapMap k v -> (k, v) -> EnumMapMap k v
+          g emm (k, v) = insert k v emm
+
     -- | List of elements in ascending order of keys
     elems :: EnumMapMap k v -> [v]
     elems = foldr (:) []
@@ -833,6 +866,16 @@ instance (Enum a, SafeCopy b) => SafeCopy (a :& b) where
                          safePut $ fromEnum a
                          safePut b
     errorTypeName _ = "(:&)"
+
+-- We only define this for (k :& t) here because the more general version
+-- causes overlaps between EnumMapMap and EnumMapSet.
+instance (SafeCopy k, SafeCopy (NestedPair k v), IsKey k,
+          Result k k v ~ v, SubKey k k v,
+          MkNestedPair k v) =>
+    SafeCopy (EnumMapMap k v) where
+        getCopy = contain $ fmap fromNestedPairList safeGet
+        putCopy = contain . safePut . toNestedPairList
+        errorTypeName _ = "EnumMapMap"
 
 {--------------------------------------------------------------------
   Nat conversion

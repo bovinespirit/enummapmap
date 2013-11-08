@@ -131,6 +131,11 @@ import qualified Data.EnumMapSet.Base as EMS
 newtype K k = K k
            deriving (Show, Eq)
 
+instance (Enum k) => MkNestedPair (K k) v where
+    type NestedPair (K k) v = (Int, v)
+    nestedPair (K k) v = (fromEnum k, v)
+    unNestedPair (k, v) = (K $ toEnum k, v)
+
 instance (Enum k, Eq k) => IsKey (K k) where
     newtype EnumMapMap (K k) v = KEC (EMM k v)
 
@@ -315,11 +320,13 @@ instance (Enum k) => SafeCopy (K k) where
     putCopy (K k) = contain $ safePut $ fromEnum k
     errorTypeName _ = "K"
 
-instance (SafeCopy k, SafeCopy v, IsKey k, Result k k v ~ v, SubKey k k v) =>
-    SafeCopy (EnumMapMap k v) where
+-- We put this here so that it doesn't interfere with EnumMapSet version
+instance (SafeCopy (K k), SafeCopy v, IsKey (K k),
+          Result (K k) (K k) v ~ v, SubKey (K k) (K k) v) =>
+    SafeCopy (EnumMapMap (K k) v) where
         getCopy = contain $ fmap fromList safeGet
         putCopy = contain . safePut . toList
-        errorTypeName _ = "EnumMapMap"
+        errorTypeName _ = "EnumMapMap K"
 
 {---------------------------------------------------------------------
  Split/Join Keys
@@ -346,7 +353,7 @@ instance (Enum k) => SubKey (K k) (K k) v where
     member (K key) (KEC emm) = member_ (fromEnum key) emm
     singleton !(K key) !val = KEC $! Tip (fromEnum key) val
     lookup (K key') (KEC emm) = lookup_ (fromEnum key') emm
-    insert !(K key') !val (KEC emm) = KEC $ insert_ (fromEnum key') val emm
+    insert !(K key') !val (KEC emm) = KEC $! insert_ (fromEnum key') val emm
     insertWithKey f !k@(K key') !val (KEC emm) =
         KEC $ insertWK (f k) (fromEnum key') val emm
     delete !(K key') (KEC emm) = KEC $ delete_ (fromEnum key') emm

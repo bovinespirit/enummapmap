@@ -83,6 +83,7 @@ import           GHC.Prim (indexInt8OffAddr#)
 #include "MachDeps.h"
 
 import           Data.EnumMapMap.Base ((:&)(..),
+                                       MkNestedPair(..),
                                        IsKey,
                                        EnumMapMap,
                                        Prefix, Nat, Mask,
@@ -105,6 +106,11 @@ type BitMap = Word
 --
 newtype S k = S k
            deriving (Show, Eq)
+
+instance (Enum k) => MkNestedPair (S k) () where
+    type NestedPair (S k) () = Int
+    nestedPair (S k) _ = fromEnum k
+    unNestedPair k = (S $ toEnum k, ())
 
 -- This is used instead of @EMM k BitMap@ in order to unpack the 'BitMap' in
 -- 'Tip'. Hopefully this will lead to much optimisation by GHC.
@@ -152,7 +158,7 @@ instance (Enum k, Eq k) => IsKey (S k) where
             go init' Nil           = init'
             go init' (Tip kx bm)   = foldrBits kx f' init' bm
             go init' (Bin _ _ l r) = go (go init' r) l
-            f' !k = f (S $ toEnum k) undefined
+            f' !k = f (S $ toEnum k) $ error "foldrWihKey: No value in EnumMapSet"
 
     findMin (KSC ems) =
         case ems of
@@ -513,8 +519,9 @@ instance (Enum s) => SafeCopy (S s) where
 
 -- This can't live in EnumMapMap.Base because it calls the undefined toList and
 -- fromList functions
-instance (SafeCopy k, EMM.IsKey k, EMM.Result k k () ~ (), EMM.SubKey k k ()) =>
-    SafeCopy (EnumMapSet k) where
+instance (SafeCopy (S k), EMM.IsKey (S k),
+          EMM.Result (S k) (S k) () ~ (), EMM.SubKey (S k) (S k) ()) =>
+    SafeCopy (EnumMapSet (S k)) where
         getCopy = contain $ fmap fromList safeGet
         putCopy = contain . safePut . toList
         errorTypeName _ = "EnumMapSet"
