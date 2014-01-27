@@ -16,6 +16,7 @@ import           Test.Hspec
 import           Test.HUnit
 import           Test.QuickCheck (Arbitrary, arbitrary, shrink, listOf)
 
+import           Control.Lens ((^.), contains)
 import           Control.Monad (liftM, liftM2)
 import qualified Data.List as List
 import           Data.SafeCopy
@@ -103,3 +104,12 @@ main =
               where
                 op = runGet safeGet $ runPut $ safePut ems
       prop "Leaves data intact" testEq
+
+    describe "Lens" $ do
+      let testContains1 :: ID1 -> TestEms1 -> Bool
+          testContains1 i ems = EMS.member (S i) ems == ems ^.contains (S i)
+      let testContains2 :: ID1 -> ID2 -> TestEms2 -> Bool
+          testContains2 i1 i2 ems = EMS.member (i2 :& S i1) ems ==
+                                    ems ^.contains (i2 :& S i1)
+      prop "Contains works, Level 1" testContains1
+      prop "Contains works, Level 2" testContains2

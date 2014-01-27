@@ -14,6 +14,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.Hspec
 import           Test.QuickCheck (Arbitrary, arbitrary, shrink, listOf)
 
+import           Control.Lens ((^.), at, contains)
 import           Control.Monad (liftM, liftM2)
 import           Data.SafeCopy
 import           Data.Serialize.Get (runGet)
@@ -74,10 +75,30 @@ main =
           testEq emm = op == Right emm
               where
                 op = runGet safeGet $ runPut $ safePut emm
+
       prop "Leaves data intact" testEq
+
     describe "EnumMapSet SafeCopy Instance" $ do
       let testEq :: TestEms2 -> Bool
           testEq ems = op == Right ems
               where
                 op = runGet safeGet $ runPut $ safePut ems
+
       prop "Leaves data intact" testEq
+
+    describe "EnumMapSet Lens" $ do
+      let testContains2 :: ID1 -> ID2 -> TestEms2 -> Bool
+          testContains2 i1 i2 ems = EMS.member (i2 :& S i1) ems ==
+                                    ems ^.contains (i2 :& S i1)
+      prop "Contains works, Level 2" testContains2
+
+    describe "EnumMapMap Lens instance" $ do
+      let testAt2 :: ID1 -> ID2 -> TestEmm2 -> Bool
+          testAt2 i1 i2 emm =
+              emm ^.at (i2 :& K i1) == EMM.lookup (i2 :& K i1) emm
+          testContains2 :: ID1 -> ID2 -> TestEmm2 -> Bool
+          testContains2 i1 i2 emm =
+              emm ^.contains (i2 :& K i1) == EMM.member (i2 :& K i1) emm
+      prop "Lens.At instance returns same result as lookup Level 2" testAt2
+      prop "Lens.Contains instance returns same result as member Level 2"
+           testContains2

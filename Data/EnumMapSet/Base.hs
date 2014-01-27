@@ -73,6 +73,9 @@ module Data.EnumMapSet.Base (
 import           Prelude hiding (lookup, map, filter, foldr, foldl,
                                  null, init, head, tail, all)
 
+import           Control.Lens.At (Contains, contains)
+import           Control.Lens.Combinators ((<&>))
+import qualified Control.Lens.Indexed as Lens
 import           Data.Bits
 import qualified Data.List as List
 import           Data.Maybe (fromMaybe)
@@ -525,6 +528,14 @@ instance (SafeCopy (S k), EMM.IsKey (S k),
         getCopy = contain $ fmap fromList safeGet
         putCopy = contain . safePut . toList
         errorTypeName _ = "EnumMapSet"
+
+-- Lens
+
+instance (Functor f, EMM.IsKey k, EMM.SubKey k k (), EMM.Result k k () ~ ()) =>
+    Contains f (EnumMapSet k) where
+        contains k f s = Lens.indexed f k (member k s) <&> \b ->
+                         if b then insert k s else delete k s
+        {-# INLINE contains #-}
 
 {---------------------------------------------------------------------
   Helper functions

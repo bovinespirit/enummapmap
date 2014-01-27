@@ -115,6 +115,7 @@ Test-Suite test-enummapset
                       hspec-expectations,
                       cereal >= 0.4,
                       deepseq >= 1.2 && < 1.4,
+                      lens >= 3.10 && < 4,
                       safecopy >= 0.8 && < 0.9,
                       containers >= 0.4.2,
                       enummapmap
@@ -148,6 +149,7 @@ Test-Suite test-both-lazy
 
                       cereal >= 0.4,
                       deepseq >= 1.2 && < 1.4,
+                      lens >= 3.10 && < 4,
                       safecopy >= 0.8 && < 0.9,
 
                       enummapmap
@@ -167,6 +169,7 @@ Test-Suite test-both-strict
 
                       cereal >= 0.4,
                       deepseq >= 1.2 && < 1.4,
+                      lens >= 3.10 && < 4,
                       safecopy >= 0.8 && < 0.9,
 
                       enummapmap
