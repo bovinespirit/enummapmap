@@ -22,9 +22,11 @@ Library
                     Data.EnumMapSet
    other-modules:   Data.EnumMapMap.Base, Data.EnumMapSet.Base
    build-depends:   base >= 4.0 && < 5,
+                    contravariant >= 0.4.4,
                     data-default,
                     deepseq >= 1.2 && < 1.4,
                     ghc-prim,
+                    lens >= 3.10 && < 4,
                     safecopy >= 0.8 && < 0.9,
                     semigroups >= 0.8
    ghc-options:     -Wall -O2
@@ -43,6 +45,7 @@ Test-Suite test-enummapmap-lazy
                       hspec-expectations,
                       cereal >= 0.4,
                       deepseq >= 1.2 && < 1.4,
+                      lens >= 3.10 && < 4,
                       safecopy >= 0.8 && < 0.9,
                       semigroups >= 0.8,
                       enummapmap
@@ -77,6 +80,7 @@ Test-Suite test-enummapmap-strict
                       hspec-expectations,
                       cereal >= 0.4,
                       deepseq >= 1.2 && < 1.4,
+                      lens >= 3.10 && < 4,
                       safecopy >= 0.8 && < 0.9,
                       semigroups >= 0.8,
                       enummapmap

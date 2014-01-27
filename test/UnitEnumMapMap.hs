@@ -10,6 +10,8 @@
   UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
+import           Control.Arrow (first)
+import           Control.Lens ((^.), at, contains)
 import           Control.Exception
 import           Control.Monad (liftM, liftM2)
 import qualified Data.Foldable as Foldable
@@ -93,7 +95,7 @@ alls :: [Int]
 alls = [1, 2..1000]
 
 l1tens :: EnumMapMap I Int
-l1tens = EMM.fromList $ map (\(key, v) -> (K key, v)) $ zip [1..7] tens
+l1tens = EMM.fromList $ map (first K) $ zip [1..7] tens
 l1IDtens :: TestEmm1
 l1IDtens = EMM.fromList $ map (\(key, v) -> (K $ ID1 key, v)) $ zip [1..7] tens
 l2tens :: EnumMapMap (Int :& I) Int
@@ -103,16 +105,16 @@ l2tens = EMM.fromList $ zip (do
                               return $ k1 :& K k2) $ cycle tens
 
 l1odds :: EnumMapMap (K Int) Int
-l1odds = EMM.fromList $ map (\(key, v) -> (K key, v)) $ zip odds odds
+l1odds = EMM.fromList $ map (first K) $ zip odds odds
 l1fewOdds :: EnumMapMap (K Int) Int
-l1fewOdds = EMM.fromList $ map (\(key, v) -> (K key, v)) $ zip fewOdds fewOdds
+l1fewOdds = EMM.fromList $ map (first K) $ zip fewOdds fewOdds
 l2odds :: EnumMapMap (Int :& K Int) Int
 l2odds = EMM.fromList $ zip (do
                               k1 <- fewOdds
                               k2 <- fewOdds
                               return $ k1 :& K k2) $ cycle odds
 l1evens :: EnumMapMap (K Int) Int
-l1evens = EMM.fromList $ map (\(key, v) -> (K key, v)) $ zip evens evens
+l1evens = EMM.fromList $ map (first K) $ zip evens evens
 
 l1alls :: EnumMapMap (K Int) Int
 l1alls = EMM.fromList $ zip (map K alls) alls
@@ -122,7 +124,7 @@ checkSubs :: (TestEmm3 -> TestEmm3 -> TestEmm3)
           -> [(TestKey3, Int)]
           -> Bool
 checkSubs f l1 l2 =
-    False == (EMM.emptySubTrees $ f emm1 emm2)
+    False == EMM.emptySubTrees (f emm1 emm2)
         where
           emm1 = EMM.fromList l1
           emm2 = EMM.fromList l2
@@ -131,7 +133,7 @@ checkSubs1 :: (TestEmm3 -> TestEmm3)
            -> [(TestKey3, Int)]
            -> Bool
 checkSubs1 f l1 =
-    False == (EMM.emptySubTrees $ f emm1)
+    False == EMM.emptySubTrees (f emm1)
         where
           emm1 = EMM.fromList l1
 
@@ -442,3 +444,21 @@ main =
               where
                 op = runGet safeGet $ runPut $ safePut emm
       prop "Leaves data intact" testEq
+
+    describe "Lens instance" $ do
+      let testAt1 :: ID1 -> TestEmm1 -> Bool
+          testAt1 i emm = emm ^.at (K i) == EMM.lookup (K i) emm
+          testAt2 :: ID1 -> ID2 -> TestEmm2 -> Bool
+          testAt2 i1 i2 emm =
+              emm ^.at (i2 :& K i1) == EMM.lookup (i2 :& K i1) emm
+          testContains1 :: ID1 -> TestEmm1 -> Bool
+          testContains1 i emm = emm ^.contains (K i) == EMM.member (K i) emm
+          testContains2 :: ID1 -> ID2 -> TestEmm2 -> Bool
+          testContains2 i1 i2 emm =
+              emm ^.contains (i2 :& K i1) == EMM.member (i2 :& K i1) emm
+      prop "Lens.At instance returns same result as lookup Level 1" testAt1
+      prop "Lens.At instance returns same result as lookup Level 2" testAt2
+      prop "Lens.Contains instance returns same result as member Level 1"
+           testContains1
+      prop "Lens.Contains instance returns same result as member Level 2"
+           testContains2

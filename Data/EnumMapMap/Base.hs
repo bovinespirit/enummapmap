@@ -1,17 +1,16 @@
-{-# LANGUAGE
-      BangPatterns,
-      DeriveDataTypeable,
-      FlexibleContexts,
-      FlexibleInstances,
-      GeneralizedNewtypeDeriving,
-      MagicHash,
-      MultiParamTypeClasses,
-      OverlappingInstances,
-      StandaloneDeriving,
-      TypeFamilies,
-      TypeOperators,
-      UndecidableInstances
- #-}
+{-# LANGUAGE BangPatterns               #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MagicHash                  #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE OverlappingInstances       #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -81,15 +80,21 @@ import           Prelude hiding (lookup,
                                  null, init,
                                  head, tail)
 
-import           Control.Applicative (Applicative(pure,(<*>)),(<$>))
+import           Control.Applicative (Applicative(pure,(<*>)), (<$>))
 import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import           Data.Default
 import qualified Data.Foldable as FOLD
-import           Data.Maybe (fromMaybe)
+import           Control.Lens.At (At, Contains, IxValue,
+                                  at, contains, containsLookup)
+import           Control.Lens.Combinators ((<&>))
+import           Control.Lens.Each (Index, Each, each)
+import           Control.Lens.Getter (Contravariant)
+import qualified Control.Lens.Indexed as Lens
+import           Data.Maybe (fromMaybe, isJust)
 import           Data.SafeCopy
 import           Data.Semigroup
-import           Data.Traversable (Traversable(traverse))
+import           Data.Traversable (Traversable(traverse), sequenceA)
 import           Data.Typeable
 import           GHC.Exts (Word(..), Int(..),
                            uncheckedShiftRL#, uncheckedShiftL#)
@@ -452,7 +457,7 @@ instance (Enum k, IsKey t1, IsKey t2, SubKey t1 t2 v) =>
     SubKey (k :& t1) (k :& t2) v where
     type Result (k :& t1) (k :& t2) v = Result t1 t2 v
 
-    member !(key' :& nxt) (KCC emm) = key `seq` go emm
+    member (key' :& nxt) (KCC emm) = key `seq` go emm
         where
           go t = case t of
                    Bin _ m l r -> case zero key m of
@@ -466,7 +471,7 @@ instance (Enum k, IsKey t1, IsKey t2, SubKey t1 t2 v) =>
 
     singleton (key :& nxt) = KCC . Tip (fromEnum key) . singleton nxt
 
-    lookup !(key' :& nxt) (KCC emm) = key `seq` go emm
+    lookup (key' :& nxt) (KCC emm) = key `seq` go emm
         where
           go (Bin _ m l r)
              | zero key m = go l
@@ -486,7 +491,7 @@ instance (Enum k, IsKey t1, IsKey t2, SubKey t1 t2 v) =>
             where
               go = insertWithKey (\_ -> f k) nxt val
 
-    delete !(key :& nxt) (KCC emm) =
+    delete (key :& nxt) (KCC emm) =
         KCC $ alter_ (delete nxt) (fromEnum key) emm
 
 instance (Enum k, IsKey t1, IsKey t2, SubKeyS t1 t2) =>
@@ -867,8 +872,6 @@ instance (Enum a, SafeCopy b) => SafeCopy (a :& b) where
                          safePut b
     errorTypeName _ = "(:&)"
 
--- We only define this for (k :& t) here because the more general version
--- causes overlaps between EnumMapMap and EnumMapSet.
 instance (SafeCopy k, SafeCopy (NestedPair k v), IsKey k,
           Result k k v ~ v, SubKey k k v,
           MkNestedPair k v) =>
@@ -876,6 +879,33 @@ instance (SafeCopy k, SafeCopy (NestedPair k v), IsKey k,
         getCopy = contain $ fmap fromNestedPairList safeGet
         putCopy = contain . safePut . toNestedPairList
         errorTypeName _ = "EnumMapMap"
+
+-- Control.Lens.At
+
+type instance Index (EnumMapMap k v) = k
+
+instance (Applicative f,
+          FOLD.Foldable (EnumMapMap k),
+          IsKey (Index (EnumMapMap k a)),
+          IsKey (Index (EnumMapMap k b))) =>
+    Each f (EnumMapMap k a) (EnumMapMap k b) a b where
+        each f m = sequenceA $ mapWithKey f' m
+            where f' = Lens.indexed f
+
+instance (Contravariant f, Functor f, IsKey k, SubKey k k v) =>
+    Contains f (EnumMapMap k v) where
+        contains = containsLookup lookup
+        {-# INLINE contains #-}
+
+type instance IxValue (EnumMapMap k v) = Result k k v
+
+instance (IsKey k, SubKey k k v) =>
+    At (EnumMapMap k v) where
+        at k f m = Lens.indexed f k mv <&>
+                   \r -> case r of
+                           Nothing -> maybe m (const (delete k m)) mv
+                           Just v' -> insert k v' m
+                       where mv = lookup k m
 
 {--------------------------------------------------------------------
   Nat conversion

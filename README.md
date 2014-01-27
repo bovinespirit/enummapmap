@@ -65,6 +65,16 @@ Because the keys are polymorphic you may have to specify types:
 treeKey = (2 :: OrchardID) :& (K $ 3 :: TreeID)
 ```
 
+EnumMapMap is a bit 'batteries included', so it has a number of dependencies,
+including Lens, SafeCopy, Semigroup and Data.Default.  If this is an issue I
+could move them out to separate packages.
+
+ChangeLog:
+
+- 0.7.0 Add Lenses.  This means that EnumMapMap now requires the Lens package.
+- 0.6.0 Add SafeCopy, Typeable and Traversable instances.  Add mapMaybe and
+  mapMaybeWithKey.
+
 TODO:
 
 - Investigate removing K and S using [Ordered Overlapping Type Family Instances]
