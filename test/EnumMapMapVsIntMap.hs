@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, TypeOperators #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 -- | This uses QuickCheck to try to check that an 'EnumMapMap'
 -- behaves in the same way as an 'IntMap'.  It checks up to 4 levels of
@@ -11,6 +12,7 @@ import           Test.Hspec
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck ((==>))
 
+import           Control.Arrow (first)
 import           Control.Monad(liftM)
 import qualified Data.IntSet as IS
 import           Data.EnumMapSet (S(..))
@@ -42,7 +44,7 @@ type TestMap4 = EnumMapMap (Int :& Int :& Int :& K Int) Int
 -- type TestSet4 = EnumMapSet (Int :& Int :& Int :& S Int)
 
 list2l1 :: [(Int, Int)] -> [(K Int, Int)]
-list2l1 = map (\(a, b) -> (K a, b))
+list2l1 = map $ first K
 
 list2l2 :: Int -> [(Int, Int)] -> [(Int :& K Int, Int)]
 list2l2 k1 = map (\(a, b) -> (a :& K k1, b))
@@ -82,7 +84,7 @@ runProp :: Eq t =>
         -> [(Int, Int)]
         -> Bool
 runProp f g list =
-    (f $ IM.fromList list) == (g $ EMM.fromList $ list2l1 list)
+    f (IM.fromList list) == g (EMM.fromList $ list2l1 list)
 
 runPropDuo :: Eq t =>
            (IM.IntMap Int -> IM.IntMap Int -> t)
@@ -91,8 +93,8 @@ runPropDuo :: Eq t =>
         -> [(Int, Int)]
         -> Bool
 runPropDuo f g list1 list2 =
-    (f (IM.fromList list1) $ IM.fromList list2)
-    == (g (EMM.fromList $ list2l1 list1) $ EMM.fromList $ list2l1 list2)
+    f (IM.fromList list1) (IM.fromList list2) ==
+      g (EMM.fromList $ list2l1 list1) (EMM.fromList $ list2l1 list2)
 
 runProp2 :: Eq t =>
             (IM.IntMap Int -> t)
@@ -101,7 +103,7 @@ runProp2 :: Eq t =>
          -> [(Int, Int)]
          -> Bool
 runProp2 f g k1 list =
-    (f $ IM.fromList list) == (g $ EMM.fromList $ list2l2 k1 list)
+    f (IM.fromList list) == g (EMM.fromList $ list2l2 k1 list)
 
 runPropDuo2 :: Eq t =>
                (IM.IntMap Int -> IM.IntMap Int -> t)
@@ -111,9 +113,9 @@ runPropDuo2 :: Eq t =>
             -> [(Int, Int)]
             -> Bool
 runPropDuo2 f g k1 list1 list2 =
-    (f (IM.fromList list1) $ IM.fromList list2)
-    == (g (EMM.fromList $ list2l2 k1 list1) $
-          EMM.fromList $ list2l2 k1 list2)
+    f (IM.fromList list1) (IM.fromList list2)
+          == g (EMM.fromList $ list2l2 k1 list1)
+                 (EMM.fromList $ list2l2 k1 list2)
 
 runProp3 :: Eq t =>
             (IM.IntMap Int -> t)
@@ -123,7 +125,7 @@ runProp3 :: Eq t =>
          -> [(Int, Int)]
          -> Bool
 runProp3 f g k1 k2 list =
-    (f $ IM.fromList list) == (g $ EMM.fromList $ list2l3 k1 k2 list)
+    f (IM.fromList list) == g (EMM.fromList $ list2l3 k1 k2 list)
 
 runPropDuo3 :: Eq t =>
                (IM.IntMap Int -> IM.IntMap Int -> t)
@@ -134,9 +136,9 @@ runPropDuo3 :: Eq t =>
             -> [(Int, Int)]
             -> Bool
 runPropDuo3 f g k1 k2 list1 list2 =
-    (f (IM.fromList list1) $ IM.fromList list2)
-    == (g (EMM.fromList $ list2l3 k1 k2 list1) $
-          EMM.fromList $ list2l3 k1 k2 list2)
+    f (IM.fromList list1) (IM.fromList list2)
+    == g (EMM.fromList $ list2l3 k1 k2 list1)
+           (EMM.fromList $ list2l3 k1 k2 list2)
 
 runProp4 :: Eq t =>
             (IM.IntMap Int -> t)
@@ -147,7 +149,7 @@ runProp4 :: Eq t =>
          -> [(Int, Int)]
          -> Bool
 runProp4 f g k1 k2 k3 list =
-    (f $ IM.fromList list) == (g $ EMM.fromList $ list2l4 k1 k2 k3 list)
+    f (IM.fromList list) == g (EMM.fromList $ list2l4 k1 k2 k3 list)
 
 runPropDuo4 :: Eq t =>
                (IM.IntMap Int -> IM.IntMap Int -> t)
@@ -159,9 +161,9 @@ runPropDuo4 :: Eq t =>
             -> [(Int, Int)]
             -> Bool
 runPropDuo4 f g k1 k2 k3 list1 list2 =
-    (f (IM.fromList list1) $ IM.fromList list2)
-    == (g (EMM.fromList $ list2l4 k1 k2 k3 list1) $
-          EMM.fromList $ list2l4 k1 k2 k3 list2)
+    f (IM.fromList list1) (IM.fromList list2)
+    == g (EMM.fromList $ list2l4 k1 k2 k3 list1)
+           (EMM.fromList $ list2l4 k1 k2 k3 list2)
 
 -- | Run functions on an 'IntMap' and an 'EnumMapMap' created from 'list' and check
 -- that the resulting 'IntMap' and 'EnumMapMap' are equal
@@ -361,12 +363,8 @@ main = hspec $ do
 
     describe "alter" $ do
         let f b n v = case v of
-                          Just v' -> case b of
-                                       True  -> Just v'
-                                       False -> Nothing
-                          Nothing -> case b of
-                                       True -> Just n
-                                       False -> Nothing
+                          Just v' -> if b then Just v' else Nothing
+                          Nothing -> if b then Just n  else Nothing
         prop "Level 1" $ \i b n ->
             runPropL (IM.alter (f b n) i) $
                      EMM.alter (f b n) (K i)
@@ -386,7 +384,7 @@ main = hspec $ do
              runProp3 (IM.foldr (:) []) (EMM.foldr (:) [])
 
     describe "foldrWithKey" $ do
-        let f a b c = [a + b] ++ c
+        let f a b c = a + b :c
         prop "Level 1" $
              runProp (IM.foldrWithKey f []) (EMM.foldrWithKey
                          (\(K k) -> f k) [])
@@ -472,10 +470,10 @@ main = hspec $ do
     describe "findMin" $ do
         let go f (a, b) = (f a, b)
         prop "Level 1" $ \list ->
-             (not $ L.null list) ==>
+             not (L.null list) ==>
                  runProp IM.findMin (go unKey1 . EMM.findMin) list
         prop "Level 2" $ \k1 list ->
-             (not $ L.null list) ==>
+             not (L.null list) ==>
                  runProp2 IM.findMin (go unKey2 . EMM.findMin) k1 list
         prop "Level 3" $ \k1 k2 list ->
              (not $ L.null list) ==>
@@ -508,19 +506,19 @@ main = hspec $ do
             goi _ Nothing = Nothing
             goi f (Just ((k, v), im)) = Just ((k, v), f $ IM.toList im)
         prop "Level 1" $ \list ->
-             (not $ L.null list) ==>
+             not (L.null list) ==>
                  runProp (goi list2l1 . IM.minViewWithKey)
                             (goe unKey1 . EMM.minViewWithKey) list
         prop "Level 2" $ \k1 list ->
-             (not $ L.null list) ==>
+             not (L.null list) ==>
                  runProp2 (goi (list2l2 k1) . IM.minViewWithKey)
                              (goe unKey2 . EMM.minViewWithKey) k1 list
         prop "Level 3" $ \k1 k2 list ->
-             (not $ L.null list) ==>
+             not (L.null list) ==>
                  runProp3 (goi (list2l3 k1 k2) . IM.minViewWithKey)
                              (goe unKey3 . EMM.minViewWithKey) k1 k2 list
         prop "Level 4" $ \k1 k2 k3 list ->
-             (not $ L.null list) ==>
+             not (L.null list) ==>
                  runProp4 (goi (list2l4 k1 k2 k3) . IM.minViewWithKey)
                              (goe unKey4 . EMM.minViewWithKey) k1 k2 k3 list
 

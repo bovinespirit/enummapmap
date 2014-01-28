@@ -1,14 +1,13 @@
-{-# LANGUAGE
-  CPP,
-  DeriveDataTypeable,
-  FlexibleContexts,
-  FlexibleInstances,
-  GeneralizedNewtypeDeriving,
-  ScopedTypeVariables,
-  TypeFamilies,
-  TypeOperators,
-  UndecidableInstances #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE UndecidableInstances       #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 import           Control.Arrow (first)
 import           Control.Lens ((^.), at, contains)
@@ -97,7 +96,7 @@ alls = [1, 2..1000]
 l1tens :: EnumMapMap I Int
 l1tens = EMM.fromList $ map (first K) $ zip [1..7] tens
 l1IDtens :: TestEmm1
-l1IDtens = EMM.fromList $ map (\(key, v) -> (K $ ID1 key, v)) $ zip [1..7] tens
+l1IDtens = EMM.fromList $ map (first (K . ID1)) $ zip [1..7] tens
 l2tens :: EnumMapMap (Int :& I) Int
 l2tens = EMM.fromList $ zip (do
                               k1 <- [1, 2]
@@ -124,7 +123,7 @@ checkSubs :: (TestEmm3 -> TestEmm3 -> TestEmm3)
           -> [(TestKey3, Int)]
           -> Bool
 checkSubs f l1 l2 =
-    False == EMM.emptySubTrees (f emm1 emm2)
+    not $ EMM.emptySubTrees (f emm1 emm2)
         where
           emm1 = EMM.fromList l1
           emm2 = EMM.fromList l2
@@ -133,7 +132,7 @@ checkSubs1 :: (TestEmm3 -> TestEmm3)
            -> [(TestKey3, Int)]
            -> Bool
 checkSubs1 f l1 =
-    False == EMM.emptySubTrees (f emm1)
+    not $ EMM.emptySubTrees (f emm1)
         where
           emm1 = EMM.fromList l1
 
@@ -142,15 +141,15 @@ main =
   hspec $ do
     describe "empty" $ do
       it "creates an empty EnumMapMap" $
-           (EMM.null $ (EMM.empty :: EnumMapMap (Int :& Int :& K Int) Bool))
+           EMM.null (EMM.empty :: EnumMapMap (Int :& Int :& K Int) Bool)
       it "has a size of 0" $
-           0 @=? (EMM.size $ (EMM.empty :: EnumMapMap (Int :& K Int) Bool))
+           0 @=? EMM.size (EMM.empty :: EnumMapMap (Int :& K Int) Bool)
 
     describe "fromList" $ do
       it "is the inverse of toList on 1 level" $
-           (EMM.fromList $ EMM.toList l1odds) @?= l1odds
+           EMM.fromList (EMM.toList l1odds) @?= l1odds
       it "is the inverse of toList on 2 levels" $
-           (EMM.fromList $ EMM.toList l2odds) @?= l2odds
+           EMM.fromList (EMM.toList l2odds) @?= l2odds
 
     describe "lookup" $ do
       let emm3 :: TestEmm3
@@ -164,24 +163,23 @@ main =
              key2 :: ID3 :& K ID2
              key2 = ID3 1 :& (K $ ID2 2)
          it "First level of level 2" $
-            (EMM.lookup (K 1) emm2) @?= (Just $ EMM.fromList [(K 2, 5)])
+            EMM.lookup (K 1) emm2 @?= Just (EMM.fromList [(K 2, 5)])
          it "1 level of level 3" $
-            (EMM.lookup key1 emm3) @?= (Just $
-                                     EMM.fromList [(ID2 2 :& (K $ ID1 3), 4)])
+            EMM.lookup key1 emm3 @?= Just (EMM.fromList [(ID2 2 :& (K $ ID1 3), 4)])
          it "2 levels of level 3" $
-            (EMM.lookup key2 emm3) @?= (Just $ EMM.fromList [(K $ ID1 3, 4)])
+            EMM.lookup key2 emm3 @?= Just (EMM.fromList [(K $ ID1 3, 4)])
       it "looks up a value" $
-         (EMM.lookup key3 emm3) @?= Just 4
+         EMM.lookup key3 emm3 @?= Just 4
 
     describe "singleton" $ do
       let emm2 :: EnumMapMap (ID1 :& K ID2) String
           emm2 = EMM.fromList [(ID1 1 :& (K $ ID2 2), "a")]
       it "creates an EnumMapMap with one value" $
-         (EMM.singleton (ID1 1 :& (K $ ID2 2)) "a") @?= emm2
+         EMM.singleton (ID1 1 :& (K $ ID2 2)) "a" @?= emm2
       it "creates an EnumMapMap with a sub EnumMapMap" $
-         (EMM.singleton (K $ ID1 1) $ EMM.singleton (K $ ID2 2) "a") @?= emm2
+         EMM.singleton (K $ ID1 1) (EMM.singleton (K $ ID2 2) "a") @?= emm2
 
-    describe "insert" $ do
+    describe "insert" $
       describe "Level 1" $ do
         it "creates a value in an empty EMM" $
            EMM.insert (k 1) 1 EMM.empty @?=
@@ -279,141 +277,143 @@ main =
              EMM.insertWithKey f (2 :& k 4) 3 emm @?=
                 EMM.fromList [((2 :: Int) :& K 3, 1), ((2 :: Int) :& K 4, 48)]
 
-    describe "delete" $ do
+    describe "delete" $
       describe "leaves no empty subtrees" $ do
         prop "Full key" $ \(key :: ID3 :& ID2 :& K ID1) l ->
-          not $ EMM.emptySubTrees $ EMM.delete key $ (EMM.fromList l :: TestEmm3)
+          not $ EMM.emptySubTrees $ EMM.delete key (EMM.fromList l :: TestEmm3)
         prop "2 dimensional key" $ \(key :: ID3 :& K ID2) l ->
-          not $ EMM.emptySubTrees $ EMM.delete key $ (EMM.fromList l :: TestEmm3)
+          not $ EMM.emptySubTrees $ EMM.delete key (EMM.fromList l :: TestEmm3)
         prop "1 dimensional key" $ \(key :: K ID3) l ->
-          not $ EMM.emptySubTrees $ EMM.delete key $ (EMM.fromList l :: TestEmm3)
+          not $ EMM.emptySubTrees $ EMM.delete key (EMM.fromList l :: TestEmm3)
 
     describe "alter" $ do
       let f b1 b2 n v = case v of
                           Nothing -> if b1 then Just n else Nothing
-                          Just v' -> case b1 of
-                                       True  -> Just $ if b2 then v' else n
-                                       False -> Nothing
+                          Just v' -> if b1
+                                      then Just $ if b2 then v' else n
+                                      else Nothing
       prop "leaves no empty subtrees" $ \key l b1 b2 n ->
-          not $ EMM.emptySubTrees $ EMM.alter (f b1 b2 n) key $
+          not $ EMM.emptySubTrees $ EMM.alter (f b1 b2 n) key
                   (EMM.fromList l :: TestEmm3)
 
     describe "foldrWithKey" $ do
       describe "Level 1" $ do
         it "folds across all values in an EnumMapMap" $
-           EMM.foldrWithKey (\_ -> (+)) 0 l1tens @?= 1111111
+           EMM.foldrWithKey (const (+)) 0 l1tens @?= 1111111
         it "folds across all keys in an EnumMapMap" $
            EMM.foldrWithKey (\(K k1) _ -> (+) k1) 0 l1tens @?= 28
       describe "Level 2" $ do
         it "folds across all values in an EnumMapMap" $
-           EMM.foldrWithKey (\_ -> (+)) 0 l2tens @?= 2222222
+           EMM.foldrWithKey (const (+)) 0 l2tens @?= 2222222
         it "folds across all keys in an EnumMapMap" $
            EMM.foldrWithKey
                       (\(k1 :& K k2) _ -> (+) (k1 * k2)) 0 l2tens @?= 84
 
     describe "mapMaybe" $ do
       let f v
-            | v > 2 = Just $ v
+            | v > 2 = Just v
             | otherwise = Nothing
       prop "No empty subtrees" $
            checkSubs1 (EMM.mapMaybe f)
 
     describe "mapMaybeWithKey" $ do
       let f _ v
-            | v > 2 = Just $ v
+            | v > 2 = Just v
             | otherwise = Nothing
       prop "No empty subtrees" $
            checkSubs1 (EMM.mapMaybeWithKey f)
 
     describe "union" $ do
-        describe "Level 1" $ do
+        describe "Level 1" $
           it "includes every key from each EnumMapMap" $
-               (EMM.union l1odds l1evens) @?= l1alls
+               EMM.union l1odds l1evens @?= l1alls
         -- Just in case...
         prop "Leaves no empty subtrees" $ checkSubs EMM.union
 
-    describe "difference" $ do
+    describe "difference" $
         prop "Leaves no empty subtrees" $ checkSubs EMM.difference
 
     describe "differenceWithKey" $ do
         let f (k1 :& k2 :& K k3) v1 v2 =
-                Just $ v1 + v2 + (fromEnum k1) + (fromEnum k2) + (fromEnum k3)
+                Just $ v1 + v2 + fromEnum k1 + fromEnum k2 + fromEnum k3
         prop "Leaves no empty subtrees" $ checkSubs (EMM.differenceWithKey f)
 
-    describe "intersection" $ do
+    describe "intersection" $
         prop "Leaves no empty subtrees" $ checkSubs EMM.intersection
 
     describe "intersectionWithKey" $ do
         let f (k1 :& k2 :& K k3) v1 v2 =
-                v1 + v2 + (fromEnum k1) + (fromEnum k2) + (fromEnum k3)
+                v1 + v2 + fromEnum k1 + fromEnum k2 + fromEnum k3
         prop "Leaves no empty subtrees" $ checkSubs (EMM.intersectionWithKey f)
 
     describe "joinKey $ splitKey z t == t" $ do
         let go21 :: [(Int :& K Int, Int)] -> Bool
-            go21 l = emm == (EMM.joinKey $ EMM.splitKey EMM.d1 emm)
+            go21 l = emm == EMM.joinKey (EMM.splitKey EMM.d1 emm)
                 where emm = EMM.fromList l
         prop "Level 2, depth = 1" go21
 
         let go31 :: [(Int :& Int :& K Int, Int)] -> Bool
-            go31 l = emm == (EMM.joinKey $ EMM.splitKey EMM.d1 emm)
+            go31 l = emm == EMM.joinKey (EMM.splitKey EMM.d1 emm)
                 where emm = EMM.fromList l
         prop "Level 3, depth = 1" go31
 
         let go32 :: [(Int :& Int :& K Int, Int)] -> Bool
-            go32 l = emm == (EMM.joinKey $ EMM.splitKey EMM.d2 emm)
+            go32 l = emm == EMM.joinKey (EMM.splitKey EMM.d2 emm)
                 where emm = EMM.fromList l
         prop "Level 3, depth = 2" go32
 
-    describe "keysSet" $ do
+    describe "keysSet" $
         describe "produces same result as keys" $ do
           let gol1 :: [(K Int, Int)] -> Bool
-              gol1 list = EMM.keys emm == (map EMM.toK $ EMS.toList $ EMM.keysSet emm)
+              gol1 list = EMM.keys emm == map EMM.toK (EMS.toList $ EMM.keysSet emm)
                   where
                     emm = EMM.fromList list
           prop "Level 1" gol1
 
     describe "intersectSet" $ do
         it "leaves correct values" $
-           (EMM.intersectSet l1odds $ EMS.fromList [s 1, s 2, s 3])
-           @?= EMM.fromList [(k 1, 1), (k 3, 3)]
+           EMM.intersectSet l1odds (EMS.fromList [s 1, s 2, s 3])
+                  @?= EMM.fromList [(k 1, 1), (k 3, 3)]
         it "leaves correct subtree" $
-           (EMM.intersectSet l2odds $ EMS.fromList [s 1])
-           @?= EMM.fromList [(1 :& k 1, 1), (1 :& k 3, 3), (1 :& k 5, 5)]
+           EMM.intersectSet l2odds (EMS.fromList [s 1])
+                  @?= EMM.fromList
+                          [(1 :& k 1, 1), (1 :& k 3, 3), (1 :& k 5, 5)]
         -- TODO: check for empty subtrees
 
     describe "differenceSet" $ do
         it "works correctly" $
-           (EMM.differenceSet l1fewOdds $ EMS.fromList [s 3, s 4, s 5])
-           @?= EMM.fromList [(k 1, 1)]
+           EMM.differenceSet l1fewOdds (EMS.fromList [s 3, s 4, s 5])
+                  @?= EMM.fromList [(k 1, 1)]
         it "leaves correct subtree" $
-           (EMM.differenceSet l2odds $ EMS.fromList [s 3, s 4, s 5])
-           @?= EMM.fromList [(1 :& k 1, 1), (1 :& k 3, 3), (1 :& k 5, 5)]
+           EMM.differenceSet l2odds (EMS.fromList [s 3, s 4, s 5])
+                  @?= EMM.fromList
+                          [(1 :& k 1, 1), (1 :& k 3, 3), (1 :& k 5, 5)]
 
-    describe "findMin" $ do
-        it "throws an error when it is passed an empty EnumMapMap" $ do
+    describe "findMin" $
+        it "throws an error when it is passed an empty EnumMapMap" $
            evaluate (EMM.findMin (EMM.empty :: EnumMapMap (K Int) Int))
                         `shouldThrow` anyErrorCall
 
-    describe "deleteFindMin" $ do
-        it "throws an error when it is passed an empty EnumMapMap" $ do
+    describe "deleteFindMin" $
+        it "throws an error when it is passed an empty EnumMapMap" $
            evaluate (EMM.deleteFindMin (EMM.empty :: EnumMapMap (K Int) Int))
                         `shouldThrow` anyErrorCall
 
     describe "Monoid/Semigroup instances" $ do
         let uvsm :: TestEmm3 -> TestEmm3 -> Bool
             uvsm emm1 emm2 =
-                ((EMM.map Sum emm1) <> (EMM.map Sum emm2)) ==
-                ( EMM.map Sum $ EMM.unionWith (+) emm1 emm2)
+                (EMM.map Sum emm1 <> EMM.map Sum emm2) ==
+                EMM.map Sum (EMM.unionWith (+) emm1 emm2)
         prop "mappend works like unionWith mappend" uvsm
         let lvsi :: TestEmm3 -> TestEmm3 -> Bool
             lvsi emm1 emm2
-                = ((EMM.map First emm1) <> (EMM.map First emm2)) ==
-                  (EMM.map First $ EMM.union emm1 emm2)
+                = (EMM.map First emm1 <> EMM.map First emm2) ==
+                  EMM.map First (emm1 `EMM.union` emm2)
         prop "(<>) First works like union" lvsi
         let bvsu :: [TestEmm2B] -> Bool
             bvsu emms =
-                (mconcat $ map (EMM.map All) emms) ==
-                (EMM.map All $ EMM.unionsWith (&&) emms)
+                mconcat (map (EMM.map All) emms) ==
+                EMM.map All (EMM.unionsWith (&&) emms)
         prop "unionsWith (&&) works like mconcat All" bvsu
 
     describe "Foldable instance" $ do
@@ -434,9 +434,9 @@ main =
 
     describe "Typeable Instance" $ do
       it "TypeOf is unique when ID types differ" $
-         ((typeOf l1IDtens) == (typeOf l1tens)) @?= False
+         (typeOf l1IDtens == typeOf l1tens) @?= False
       it "TypeOf is unique when different levels" $
-         ((typeOf l2tens) == (typeOf l1tens)) @?= False
+         (typeOf l2tens == typeOf l1tens) @?= False
 
     describe "SafeCopy instance" $ do
       let testEq :: TestEmm3 -> Bool

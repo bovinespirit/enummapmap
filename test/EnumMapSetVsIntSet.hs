@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, TypeOperators #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE TypeOperators        #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | This uses QuickCheck to try to check that an 'EnumMapSet'
@@ -40,7 +41,7 @@ runProp :: Eq t =>
         -> [Int]
         -> Bool
 runProp f g list =
-    (f $ IS.fromList list) == (g $ EMS.fromList $ list2l1 list)
+    f (IS.fromList list) == g (EMS.fromList $ list2l1 list)
 
 runPropDuo1 :: Eq t =>
               (IS.IntSet -> IS.IntSet -> t)
@@ -49,8 +50,8 @@ runPropDuo1 :: Eq t =>
            -> [Int]
            -> Bool
 runPropDuo1 f g list1 list2
-    = (f (IS.fromList list1) $ IS.fromList list2)
-      == (g (EMS.fromList $ list2l1 list1) $ EMS.fromList $ list2l1 list2)
+    = f (IS.fromList list1) (IS.fromList list2)
+      == g (EMS.fromList $ list2l1 list1) (EMS.fromList $ list2l1 list2)
 
 runProp2 :: Eq t =>
            (IS.IntSet -> t)
@@ -59,7 +60,7 @@ runProp2 :: Eq t =>
         -> [Int]
         -> Bool
 runProp2 f g k1 list
-    = (f $ IS.fromList list) == (g $ EMS.fromList $ list2l2 k1 list)
+    = f (IS.fromList list) == g (EMS.fromList $ list2l2 k1 list)
 
 runPropDuo2 :: Eq t =>
               (IS.IntSet -> IS.IntSet -> t)
@@ -69,9 +70,9 @@ runPropDuo2 :: Eq t =>
            -> [Int]
            -> Bool
 runPropDuo2 f g k1 list1 list2
-    = (f (IS.fromList list1) $ IS.fromList list2)
-      == (g (EMS.fromList $ list2l2 k1 list1) $
-            EMS.fromList $ list2l2 k1 list2)
+    = f (IS.fromList list1) (IS.fromList list2)
+      == g (EMS.fromList $ list2l2 k1 list1)
+             (EMS.fromList $ list2l2 k1 list2)
 
 runProp3 :: Eq t =>
            (IS.IntSet -> t)
@@ -80,7 +81,7 @@ runProp3 :: Eq t =>
         -> [Int]
         -> Bool
 runProp3 f g k1 k2 list
-    = (f $ IS.fromList list) == (g $ EMS.fromList $ list2l3 k1 k2 list)
+    = f (IS.fromList list) == g (EMS.fromList $ list2l3 k1 k2 list)
 
 runPropDuo3 :: Eq t =>
               (IS.IntSet -> IS.IntSet -> t)
@@ -90,9 +91,9 @@ runPropDuo3 :: Eq t =>
            -> [Int]
            -> Bool
 runPropDuo3 f g k1 k2 list1 list2
-    = (f (IS.fromList list1) $ IS.fromList list2)
-      == (g (EMS.fromList $ list2l3 k1 k2 list1) $
-            EMS.fromList $ list2l3 k1 k2 list2)
+    = f (IS.fromList list1) (IS.fromList list2)
+      == g (EMS.fromList $ list2l3 k1 k2 list1)
+             (EMS.fromList $ list2l3 k1 k2 list2)
 
 runPropL :: (IS.IntSet -> IS.IntSet)
          -> (TestSet1 -> TestSet1)

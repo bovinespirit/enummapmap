@@ -91,7 +91,7 @@ import           Control.Lens.Combinators ((<&>))
 import           Control.Lens.Each (Index, Each, each)
 import           Control.Lens.Getter (Contravariant)
 import qualified Control.Lens.Indexed as Lens
-import           Data.Maybe (fromMaybe, isJust)
+import           Data.Maybe (fromMaybe)
 import           Data.SafeCopy
 import           Data.Semigroup
 import           Data.Traversable (Traversable(traverse), sequenceA)
