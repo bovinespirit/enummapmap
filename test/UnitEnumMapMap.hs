@@ -10,7 +10,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
 
 import           Control.Arrow (first)
-import           Control.Lens ((^.), at, contains)
+import           Control.Lens ((^.), at, contains, iall, imap)
 import           Control.Exception
 import           Control.Monad (liftM, liftM2)
 import qualified Data.Foldable as Foldable
@@ -445,20 +445,41 @@ main =
                 op = runGet safeGet $ runPut $ safePut emm
       prop "Leaves data intact" testEq
 
-    describe "Lens instance" $ do
+    describe "Lens instances" $ do
       let testAt1 :: ID1 -> TestEmm1 -> Bool
           testAt1 i emm = emm ^.at (K i) == EMM.lookup (K i) emm
+
           testAt2 :: ID1 -> ID2 -> TestEmm2 -> Bool
           testAt2 i1 i2 emm =
               emm ^.at (i2 :& K i1) == EMM.lookup (i2 :& K i1) emm
+
           testContains1 :: ID1 -> TestEmm1 -> Bool
           testContains1 i emm = emm ^.contains (K i) == EMM.member (K i) emm
+
           testContains2 :: ID1 -> ID2 -> TestEmm2 -> Bool
           testContains2 i1 i2 emm =
               emm ^.contains (i2 :& K i1) == EMM.member (i2 :& K i1) emm
+
+          testImap1 :: TestEmm1 -> Bool
+          testImap1 emm = EMM.mapWithKey g emm == imap g emm
+              where
+                g (K (ID1 k1)) v = k1 + v
+
+          testImap2 :: TestEmm2 -> Bool
+          testImap2 emm = EMM.mapWithKey g emm == imap g emm
+              where
+                g (ID2 k2 :& K (ID1 k1)) v = k2 + k1 + v
+
+          testIall :: TestEmm1 -> Bool
+          testIall emm = Foldable.all (\(K (ID1 k1)) -> k1 > 0) (EMM.keys emm) ==
+                         iall (\(K (ID1 k1)) _ -> k1 > 0) emm
+
       prop "Lens.At instance returns same result as lookup Level 1" testAt1
       prop "Lens.At instance returns same result as lookup Level 2" testAt2
       prop "Lens.Contains instance returns same result as member Level 1"
            testContains1
       prop "Lens.Contains instance returns same result as member Level 2"
            testContains2
+      prop "Lens.FunctorWithIndex Level 1" testImap1
+      prop "Lens.FunctorWithIndex Level 2" testImap2
+      prop "Lens.FoldableWithIndex Level 1" testIall

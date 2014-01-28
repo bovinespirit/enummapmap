@@ -84,13 +84,15 @@ import           Control.Applicative (Applicative(pure,(<*>)), (<$>))
 import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import           Data.Default
-import qualified Data.Foldable as FOLD
+import qualified Data.Foldable as Fold
 import           Control.Lens.At (At, Contains, IxValue,
                                   at, contains, containsLookup)
 import           Control.Lens.Combinators ((<&>))
 import           Control.Lens.Each (Index, Each, each)
+import qualified Control.Lens.Fold as Lens
 import           Control.Lens.Getter (Contravariant)
 import qualified Control.Lens.Indexed as Lens
+import qualified Control.Lens.Setter as Lens
 import           Data.Maybe (fromMaybe)
 import           Data.SafeCopy
 import           Data.Semigroup
@@ -832,21 +834,21 @@ instance (NFData k, NFData t) => NFData (k :& t)
 
 -- Foldable
 
-instance (FOLD.Foldable (EnumMapMap t), Enum k, Eq k, IsKey t, HasSKey t) =>
-    FOLD.Foldable (EnumMapMap (k :& t)) where
+instance (Fold.Foldable (EnumMapMap t), Enum k, Eq k, IsKey t, HasSKey t) =>
+    Fold.Foldable (EnumMapMap (k :& t)) where
         fold (KCC emm) = go emm
             where
               go Nil           = mempty
-              go (Tip _ v)     = FOLD.fold v
+              go (Tip _ v)     = Fold.fold v
               go (Bin _ _ l r) = go l `mappend` go r
         foldr = foldr
         foldMap f (KCC emm) = go emm
             where
               go Nil           = mempty
-              go (Tip _ v)     = FOLD.foldMap f v
+              go (Tip _ v)     = Fold.foldMap f v
               go (Bin _ _ l r) = go l `mappend` go r
 
-instance (IsKey k, FOLD.Foldable (EnumMapMap k)) =>
+instance (IsKey k, Fold.Foldable (EnumMapMap k)) =>
     Traversable (EnumMapMap k) where
         traverse f = traverseWithKey (\_ -> f)
 
@@ -880,12 +882,12 @@ instance (SafeCopy k, SafeCopy (NestedPair k v), IsKey k,
         putCopy = contain . safePut . toNestedPairList
         errorTypeName _ = "EnumMapMap"
 
--- Control.Lens.At
+-- Control.Lens
 
 type instance Index (EnumMapMap k v) = k
 
 instance (Applicative f,
-          FOLD.Foldable (EnumMapMap k),
+          Fold.Foldable (EnumMapMap k),
           IsKey (Index (EnumMapMap k a)),
           IsKey (Index (EnumMapMap k b))) =>
     Each f (EnumMapMap k a) (EnumMapMap k b) a b where
@@ -906,6 +908,21 @@ instance (IsKey k, SubKey k k v) =>
                            Nothing -> maybe m (const (delete k m)) mv
                            Just v' -> insert k v' m
                        where mv = lookup k m
+
+instance (IsKey k, Fold.Foldable (EnumMapMap k)) =>
+    Lens.FunctorWithIndex k (EnumMapMap k) where
+        imap = Lens.iover Lens.itraversed
+        {-# INLINE imap #-}
+
+instance (IsKey k, Fold.Foldable (EnumMapMap k)) =>
+    Lens.FoldableWithIndex k (EnumMapMap k) where
+        ifoldMap = Lens.ifoldMapOf Lens.itraversed
+        {-# INLINE ifoldMap #-}
+
+instance (IsKey k, Fold.Foldable (EnumMapMap k)) =>
+    Lens.TraversableWithIndex k (EnumMapMap k) where
+        itraverse = traverseWithKey
+        {-# INLINE itraverse #-}
 
 {--------------------------------------------------------------------
   Nat conversion
