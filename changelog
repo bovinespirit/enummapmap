@@ -1,0 +1,10 @@
+
+0.7.0 - Add some Lenses, and a dependency on the Lens package.
+
+0.6.0 - Add Traversable, Typeable and SafeCopy instances, adding a dependency on the safecopy package.
+         - Add mapMaybe and mapMaybeWithKey
+
+0.5.0 - Add Semigroup instance and dependency
+ 	 - Add Foldable instance
+	 - Add Data.Default instance and dependency
+	 - Add minViewWithKey, deleteFindMin and findMin and EnumMapSet.all
