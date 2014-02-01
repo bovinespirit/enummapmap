@@ -1,5 +1,5 @@
 name:               enummapmap
-version:            0.7.0
+version:            0.8.0
 synopsis:           Map of maps using Enum types as keys
 description:        This package provides 'maps of maps' using Enum types as
                     keys.  The code is based upon Data.IntMap in
@@ -133,6 +133,7 @@ Test-Suite test-enummapset-intset
                       deepseq >= 1.2 && < 1.4,
                       containers >= 0.4.2,
                       enummapmap
+
     cpp-options:      -DTESTING
 
 Test-Suite test-both-lazy
