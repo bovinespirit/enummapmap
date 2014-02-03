@@ -96,9 +96,4 @@ main =
       let testAt2 :: ID1 -> ID2 -> TestEmm2 -> Bool
           testAt2 i1 i2 emm =
               emm ^.at (i2 :& K i1) == EMM.lookup (i2 :& K i1) emm
-          testContains2 :: ID1 -> ID2 -> TestEmm2 -> Bool
-          testContains2 i1 i2 emm =
-              emm ^.contains (i2 :& K i1) == EMM.member (i2 :& K i1) emm
       prop "Lens.At instance returns same result as lookup Level 2" testAt2
-      prop "Lens.Contains instance returns same result as member Level 2"
-           testContains2

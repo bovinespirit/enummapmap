@@ -85,18 +85,17 @@ import           Control.DeepSeq (NFData(rnf))
 import           Data.Bits
 import           Data.Default
 import qualified Data.Foldable as Fold
-import           Control.Lens.At (At, Contains, IxValue,
-                                  at, contains, containsLookup)
-import           Control.Lens.Combinators ((<&>))
-import           Control.Lens.Each (Index, Each, each)
+import           Control.Lens.At (At, Index, Ixed, IxValue,
+                                  at, ix)
+import           Control.Lens.Lens ((<&>))
+import           Control.Lens.Each (Each)
 import qualified Control.Lens.Fold as Lens
-import           Control.Lens.Getter (Contravariant)
 import qualified Control.Lens.Indexed as Lens
 import qualified Control.Lens.Setter as Lens
 import           Data.Maybe (fromMaybe)
 import           Data.SafeCopy
 import           Data.Semigroup
-import           Data.Traversable (Traversable(traverse), sequenceA)
+import           Data.Traversable (Traversable(traverse))
 import           Data.Typeable
 import           GHC.Exts (Word(..), Int(..),
                            uncheckedShiftRL#, uncheckedShiftL#)
@@ -886,28 +885,25 @@ instance (SafeCopy k, SafeCopy (NestedPair k v), IsKey k,
 
 type instance Index (EnumMapMap k v) = k
 
-instance (Applicative f,
-          Fold.Foldable (EnumMapMap k),
-          IsKey (Index (EnumMapMap k a)),
-          IsKey (Index (EnumMapMap k b))) =>
-    Each f (EnumMapMap k a) (EnumMapMap k b) a b where
-        each f m = sequenceA $ mapWithKey f' m
-            where f' = Lens.indexed f
-
-instance (Contravariant f, Functor f, IsKey k, SubKey k k v) =>
-    Contains f (EnumMapMap k v) where
-        contains = containsLookup lookup
-        {-# INLINE contains #-}
+instance (Fold.Foldable (EnumMapMap k), IsKey k, SubKey k k a, SubKey k k b) =>
+    Each (EnumMapMap k a) (EnumMapMap k b) a b
 
 type instance IxValue (EnumMapMap k v) = Result k k v
+instance (IsKey k, SubKey k k v) =>
+    Ixed (EnumMapMap k v) where
+        ix k f m = case lookup k m of
+                     Just v  -> f v <&> \v' -> insert k v' m
+                     Nothing -> pure m
+        {-# INLINE ix #-}
 
 instance (IsKey k, SubKey k k v) =>
     At (EnumMapMap k v) where
-        at k f m = Lens.indexed f k mv <&>
+        at k f m = f mv <&>
                    \r -> case r of
                            Nothing -> maybe m (const (delete k m)) mv
                            Just v' -> insert k v' m
                        where mv = lookup k m
+        {-# INLINE at #-}
 
 instance (IsKey k, Fold.Foldable (EnumMapMap k)) =>
     Lens.FunctorWithIndex k (EnumMapMap k) where

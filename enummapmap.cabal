@@ -28,7 +28,7 @@ Library
                     data-default,
                     deepseq >= 1.2 && < 1.4,
                     ghc-prim,
-                    lens >= 3.10 && < 4,
+                    lens >= 4 && < 5,
                     safecopy >= 0.8 && < 0.9,
                     semigroups >= 0.8
    ghc-options:     -Wall -O2
@@ -47,7 +47,7 @@ Test-Suite test-enummapmap-lazy
                       hspec-expectations,
                       cereal >= 0.4,
                       deepseq >= 1.2 && < 1.4,
-                      lens >= 3.10 && < 4,
+                      lens >= 4 && < 5,
                       safecopy >= 0.8 && < 0.9,
                       semigroups >= 0.8,
                       enummapmap
@@ -82,7 +82,7 @@ Test-Suite test-enummapmap-strict
                       hspec-expectations,
                       cereal >= 0.4,
                       deepseq >= 1.2 && < 1.4,
-                      lens >= 3.10 && < 4,
+                      lens >= 4 && < 5,
                       safecopy >= 0.8 && < 0.9,
                       semigroups >= 0.8,
                       enummapmap
@@ -117,7 +117,7 @@ Test-Suite test-enummapset
                       hspec-expectations,
                       cereal >= 0.4,
                       deepseq >= 1.2 && < 1.4,
-                      lens >= 3.10 && < 4,
+                      lens >= 4 && < 5,
                       safecopy >= 0.8 && < 0.9,
                       containers >= 0.4.2,
                       enummapmap
@@ -152,7 +152,7 @@ Test-Suite test-both-lazy
 
                       cereal >= 0.4,
                       deepseq >= 1.2 && < 1.4,
-                      lens >= 3.10 && < 4,
+                      lens >= 4 && < 5,
                       safecopy >= 0.8 && < 0.9,
 
                       enummapmap
@@ -172,7 +172,7 @@ Test-Suite test-both-strict
 
                       cereal >= 0.4,
                       deepseq >= 1.2 && < 1.4,
-                      lens >= 3.10 && < 4,
+                      lens >= 4 && < 5,
                       safecopy >= 0.8 && < 0.9,
 
                       enummapmap

@@ -1,4 +1,6 @@
 
+0.8.0 - Update for Lens 4.0
+
 0.7.0 - Add some Lenses, and a dependency on the Lens package.
 
 0.6.0 - Add Traversable, Typeable and SafeCopy instances, adding a dependency on the safecopy package.
