@@ -814,7 +814,7 @@ instance (IsKey k, Semigroup v) => Monoid (EnumMapMap k v) where
 instance (IsKey k, Semigroup v) =>
     Semigroup (EnumMapMap k v) where
         (<>) = unionWith (<>)
-        times1p _ a = a
+        stimes = stimesIdempotentMonoid
 
 instance (Show v, Show (EnumMapMap t v)) => Show (EnumMapMap (k :& t) v) where
     show (KCC emm) = show emm

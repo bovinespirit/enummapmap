@@ -1,5 +1,5 @@
 name:               enummapmap
-version:            0.8.0
+version:            0.9.0
 synopsis:           Map of maps using Enum types as keys
 description:        This package provides 'maps of maps' using Enum types as
                     keys.  The code is based upon Data.IntMap in
@@ -26,10 +26,10 @@ Library
    build-depends:   base >= 4.0 && < 5,
                     contravariant >= 0.4.4,
                     data-default,
-                    deepseq >= 1.2 && < 1.4,
+                    deepseq >= 1.2 && < 1.5,
                     ghc-prim,
                     lens >= 4 && < 5,
-                    safecopy >= 0.8 && < 0.9,
+                    safecopy >= 0.8 && < 1.0,
                     semigroups >= 0.8
    ghc-options:     -Wall -O2
    default-language: Haskell2010
@@ -46,10 +46,10 @@ Test-Suite test-enummapmap-lazy
                       hspec >= 1.3,
                       hspec-expectations,
                       cereal >= 0.4,
-                      deepseq >= 1.2 && < 1.4,
+                      deepseq >= 1.2 && < 1.5,
                       lens >= 4 && < 5,
-                      safecopy >= 0.8 && < 0.9,
-                      semigroups >= 0.8,
+                      safecopy >= 0.8 && < 1.0,
+                      semigroups >= 0.17,
                       enummapmap
     cpp-options:      -DTESTING -DLAZY
 
@@ -63,7 +63,7 @@ Test-Suite test-enummapmap-intmap-lazy
                       HUnit,
                       QuickCheck >= 2,
                       hspec >= 1.3,
-                      deepseq >= 1.2 && < 1.4,
+                      deepseq >= 1.2 && < 1.5,
                       semigroups >= 0.8,
                       containers >= 0.4.2,
                       enummapmap
@@ -81,9 +81,9 @@ Test-Suite test-enummapmap-strict
                       hspec >= 1.3,
                       hspec-expectations,
                       cereal >= 0.4,
-                      deepseq >= 1.2 && < 1.4,
+                      deepseq >= 1.2 && < 1.5,
                       lens >= 4 && < 5,
-                      safecopy >= 0.8 && < 0.9,
+                      safecopy >= 0.8 && < 1.0,
                       semigroups >= 0.8,
                       enummapmap
     cpp-options:      -DTESTING -DSTRICT
@@ -98,7 +98,7 @@ Test-Suite test-enummapmap-intmap-strict
                       HUnit,
                       QuickCheck >= 2,
                       hspec >= 1.3,
-                      deepseq >= 1.2 && < 1.4,
+                      deepseq >= 1.2 && < 1.5,
                       semigroups >= 0.8,
                       containers >= 0.4.2,
                       enummapmap
@@ -116,9 +116,9 @@ Test-Suite test-enummapset
                       hspec >= 1.3,
                       hspec-expectations,
                       cereal >= 0.4,
-                      deepseq >= 1.2 && < 1.4,
+                      deepseq >= 1.2 && < 1.5,
                       lens >= 4 && < 5,
-                      safecopy >= 0.8 && < 0.9,
+                      safecopy >= 0.8 && < 1.0,
                       containers >= 0.4.2,
                       enummapmap
 
@@ -132,7 +132,7 @@ Test-Suite test-enummapset-intset
                       HUnit,
                       QuickCheck >= 2,
                       hspec >= 0.9,
-                      deepseq >= 1.2 && < 1.4,
+                      deepseq >= 1.2 && < 1.5,
                       containers >= 0.4.2,
                       enummapmap
 
@@ -151,9 +151,9 @@ Test-Suite test-both-lazy
                       QuickCheck >= 2,
 
                       cereal >= 0.4,
-                      deepseq >= 1.2 && < 1.4,
+                      deepseq >= 1.2 && < 1.5,
                       lens >= 4 && < 5,
-                      safecopy >= 0.8 && < 0.9,
+                      safecopy >= 0.8 && < 1.0,
 
                       enummapmap
     cpp-options:      -DTESTING -DLAZY
@@ -171,9 +171,9 @@ Test-Suite test-both-strict
                       QuickCheck >= 2,
 
                       cereal >= 0.4,
-                      deepseq >= 1.2 && < 1.4,
+                      deepseq >= 1.2 && < 1.5,
                       lens >= 4 && < 5,
-                      safecopy >= 0.8 && < 0.9,
+                      safecopy >= 0.8 && < 1.0,
 
                       enummapmap
     cpp-options:      -DTESTING -DSTRICT
@@ -184,7 +184,7 @@ benchmark enummapmap-vs-intmap-bench
     main-is:          IntMapVsEnumMapMap.hs
     build-depends:    base >= 4.0 && < 5,
                       criterion,
-                      deepseq >= 1.2 && < 1.4,
+                      deepseq >= 1.2 && < 1.5,
                       containers >= 0.4.2,
                       mtl,
                       enummapmap
